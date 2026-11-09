@@ -502,7 +502,7 @@ function renderResults(){
 }
 async function fetchGoogle(q,page){
   if(!SRV)throw new Error('noserver');
-  const r=await searchSrv(q+' prodotto supermercato',page);
+  const r=await searchSrv(q,page);
   return r;
 }
 async function autoSearch(){
@@ -569,7 +569,7 @@ $('logoFile').onchange=e=>{loadFile(e.target.files[0],(im,url)=>{save('vol_logo'
 $('clearLogo').onclick=()=>{logoMode='text';save('vol_logoMode',logoMode);applyLogo();};
 $('ardLogo').onclick=()=>{logoMode='default';save('vol_logoMode',logoMode);applyLogo();};
 
-function updSearch(){const q=($('desc').value||'').trim()+' prodotto supermercato';$('gSearch').href='https://www.google.com/search?tbm=isch&q='+encodeURIComponent(q);}
+function updSearch(){const q=($('desc').value||'').trim();$('gSearch').href='https://www.google.com/search?tbm=isch&q='+encodeURIComponent(q);}
 updSearch();
 
 const drop=$('drop')||document.createElement('div');
