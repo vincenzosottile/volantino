@@ -89,11 +89,23 @@
         <button class="btn" id="galBtn">🖼️ Galleria</button>
       </div>
       <div class="btns"><a class="btn" id="gSearch" target="_blank" rel="noopener">Apri Google Immagini</a></div>
+      <details style="margin-top:12px"><summary style="font-size:13px;font-weight:600;cursor:pointer">⚙️ Ricerca Google (server personale)</summary>
+        <label for="srvUrl">Indirizzo del server di ricerca</label>
+        <input type="text" id="srvUrl" placeholder="https://volantino-ricerca.TUONOME.workers.dev" autocomplete="off" autocapitalize="off">
+        <div class="btns"><button class="btn" id="srvSave">Salva</button><button class="btn" id="copyWorker">Copia codice del server</button></div>
+        <div class="msg" id="srvMsg" style="color:var(--muted)">Senza server la ricerca usa Open Food Facts e Wikimedia.</div>
+      </details>
       <input type="file" id="camFile" accept="image/*" capture="environment">
       <input type="file" id="imgFile" accept="image/*">
-      <label class="check"><input type="checkbox" id="rmBg" checked> Togli lo sfondo (bianco o uniforme)</label>
-      <label for="tol">Precisione ritaglio</label>
-      <input type="range" id="tol" min="5" max="120" value="38">
+      <label for="cutMode">Scontorno</label>
+      <select id="cutMode">
+        <option value="ai">Intelligenza artificiale (consigliato)</option>
+        <option value="aihq">Intelligenza artificiale – alta qualità (più lento)</option>
+        <option value="fast">Rapido (solo sfondo bianco)</option>
+        <option value="none">Nessuno</option>
+      </select>
+      <div id="tolWrap" style="display:none"><label for="tol">Precisione ritaglio rapido</label>
+      <input type="range" id="tol" min="5" max="120" value="38"></div>
       <label for="scale">Dimensione foto</label>
       <input type="range" id="scale" min="30" max="200" value="100">
       <div class="btns"><button class="btn" id="resetPos">Rimetti al centro</button><button class="btn" id="clearImg">Togli foto</button></div>
@@ -115,10 +127,10 @@
     <div class="panel">
       <h3>Negozio</h3>
       <div class="row">
-        <div><label for="s1">Nome (riga grande)</label><input type="text" id="s1" value="Qualità"></div>
+        <div><label for="s1">Logo scritto: riga grande</label><input type="text" id="s1" value="Qualità"></div>
         <div><label for="s2">Riga verde</label><input type="text" id="s2" value="superfresco"></div>
       </div>
-      <div class="btns"><button class="btn" id="pickLogo">Usa il mio logo (immagine)</button><button class="btn" id="clearLogo">Torna al logo scritto</button></div>
+      <div class="btns"><button class="btn" id="ardLogo">Logo ARD</button><button class="btn" id="pickLogo">Carica altro logo</button><button class="btn" id="clearLogo">Logo scritto</button></div>
       <input type="file" id="logoFile" accept="image/*">
       <div class="msg" style="color:var(--muted)">Nome e logo restano salvati per i prossimi volantini.</div>
     </div>
@@ -141,8 +153,14 @@ let imgPos={dx:0,dy:0};
 function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function save(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 ['s1','s2'].forEach(id=>{const v=load('vol_'+id);if(v!==null)$(id).value=v;});
-const savedLogo=load('vol_logo');
-if(savedLogo){const im=new Image();im.onload=()=>{logoImg=im;draw()};im.src=savedLogo;}
+const DEFAULT_LOGO='data:image/png;base64,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';
+let logoMode=load('vol_logoMode')||'default';
+function applyLogo(){
+  if(logoMode==='text'){logoImg=null;draw();return;}
+  const src=(logoMode==='custom'&&load('vol_logo'))||DEFAULT_LOGO;
+  const im=new Image();im.onload=()=>{logoImg=im;draw()};im.src=src;
+}
+applyLogo();
 
 /* ---------- dates ---------- */
 function iso(d){return d.toISOString().slice(0,10)}
@@ -319,50 +337,73 @@ function draw(){
 }
 
 /* ---------- background removal ---------- */
-function processImage(){
-  if(!srcImg){prodCanvas=null;draw();return;}
-  const max=1400,s=Math.min(1,max/Math.max(srcImg.width,srcImg.height));
-  const w=Math.round(srcImg.width*s),h=Math.round(srcImg.height*s);
-  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d',{willReadFrequently:true});
-  x.drawImage(srcImg,0,0,w,h);
-  if($('rmBg').checked){
-    const id=x.getImageData(0,0,w,h),d=id.data;
-    // already transparent? skip
-    let transp=0;for(let i=3;i<d.length;i+=4*97)if(d[i]<20)transp++;
-    if(transp<5){
-      // reference colour = average of corners
-      let r=0,g=0,b=0,n=0;
-      [[0,0],[w-6,0],[0,h-6],[w-6,h-6]].forEach(([cx,cy])=>{for(let yy=cy;yy<cy+6;yy++)for(let xx=cx;xx<cx+6;xx++){const i=(yy*w+xx)*4;r+=d[i];g+=d[i+1];b+=d[i+2];n++;}});
-      r/=n;g/=n;b/=n;
-      const tol=+$('tol').value,t2=tol*tol*3;
-      const dist=i=>{const dr=d[i]-r,dg=d[i+1]-g,db=d[i+2]-b;return dr*dr+dg*dg+db*db};
-      const mark=new Uint8Array(w*h),stack=[];
-      const push=p=>{if(!mark[p]&&dist(p*4)<=t2){mark[p]=1;stack.push(p)}};
-      for(let i=0;i<w;i++){push(i);push((h-1)*w+i)}
-      for(let j=0;j<h;j++){push(j*w);push(j*w+w-1)}
-      while(stack.length){const p=stack.pop(),px=p%w,py=(p-px)/w;
-        if(px>0)push(p-1);if(px<w-1)push(p+1);if(py>0)push(p-w);if(py<h-1)push(p+w);}
-      for(let p=0;p<w*h;p++){if(mark[p])d[p*4+3]=0;}
-      // soften edges
-      for(let p=0;p<w*h;p++){if(mark[p])continue;const px=p%w;
-        const nb=(px>0&&mark[p-1])||(px<w-1&&mark[p+1])||(p>=w&&mark[p-w])||(p<w*h-w&&mark[p+w]);
-        if(nb){const dd=Math.sqrt(dist(p*4)/3);d[p*4+3]=Math.min(255,Math.max(60,dd/(tol*2)*255));}}
-      x.putImageData(id,0,0);
-    }
+let procSeq=0;const aiCache=new WeakMap();let aiFn=null;
+async function loadAI(){
+  if(aiFn)return aiFn;
+  for(const u of ['https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm','https://esm.sh/@imgly/background-removal@1.7.0']){
+    try{const m=await import(u);aiFn=m.removeBackground||m.default;if(aiFn)return aiFn;}catch(e){console.warn(e)}
   }
-  // trim transparent borders
-  const id2=x.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
-  for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++)if(id2[(yy*w+xx)*4+3]>25){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(yy<y0)y0=yy;if(yy>y1)y1=yy;}
-  if(x1<0){prodCanvas=c;}else{
-    const t=document.createElement('canvas');t.width=x1-x0+1;t.height=y1-y0+1;t.getContext('2d').drawImage(c,-x0,-y0);prodCanvas=t;}
-  draw();
+  throw new Error('libreria IA non raggiungibile');
+}
+function scaledCanvas(img,max){const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));c.getContext('2d',{willReadFrequently:true}).drawImage(img,0,0,c.width,c.height);return c;}
+function trimCanvas(c){
+  const w=c.width,h=c.height,d=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
+  for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++)if(d[(yy*w+xx)*4+3]>25){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(yy<y0)y0=yy;if(yy>y1)y1=yy;}
+  if(x1<0)return c;const t=document.createElement('canvas');t.width=x1-x0+1;t.height=y1-y0+1;t.getContext('2d').drawImage(c,-x0,-y0);return t;
+}
+function fastCut(c){
+  const x=c.getContext('2d',{willReadFrequently:true}),w=c.width,h=c.height;
+  const id=x.getImageData(0,0,w,h),d=id.data;
+  let transp=0;for(let i=3;i<d.length;i+=4*97)if(d[i]<20)transp++;
+  if(transp>=5)return c;
+  let r=0,g=0,b=0,n=0;
+  [[0,0],[w-6,0],[0,h-6],[w-6,h-6]].forEach(([cx,cy])=>{for(let yy=cy;yy<cy+6;yy++)for(let xx=cx;xx<cx+6;xx++){const i=(yy*w+xx)*4;r+=d[i];g+=d[i+1];b+=d[i+2];n++;}});
+  r/=n;g/=n;b/=n;
+  const tol=+$('tol').value,t2=tol*tol*3;
+  const dist=i=>{const dr=d[i]-r,dg=d[i+1]-g,db=d[i+2]-b;return dr*dr+dg*dg+db*db};
+  const mark=new Uint8Array(w*h),stack=[];
+  const push=p=>{if(!mark[p]&&dist(p*4)<=t2){mark[p]=1;stack.push(p)}};
+  for(let i=0;i<w;i++){push(i);push((h-1)*w+i)}
+  for(let j=0;j<h;j++){push(j*w);push(j*w+w-1)}
+  while(stack.length){const p=stack.pop(),px=p%w,py=(p-px)/w;if(px>0)push(p-1);if(px<w-1)push(p+1);if(py>0)push(p-w);if(py<h-1)push(p+w);}
+  for(let p=0;p<w*h;p++){if(mark[p])d[p*4+3]=0;}
+  for(let p=0;p<w*h;p++){if(mark[p])continue;const px=p%w;const nb=(px>0&&mark[p-1])||(px<w-1&&mark[p+1])||(p>=w&&mark[p-w])||(p<w*h-w&&mark[p+w]);if(nb){const dd=Math.sqrt(dist(p*4)/3);d[p*4+3]=Math.min(255,Math.max(60,dd/(tol*2)*255));}}
+  x.putImageData(id,0,0);return c;
+}
+async function aiCut(img,hq){
+  const key=hq?'hq':'std';let cache=aiCache.get(img);if(!cache){cache={};aiCache.set(img,cache);}
+  if(cache[key])return cache[key];
+  const fn=await loadAI();
+  const src=scaledCanvas(img,hq?1600:1024);
+  const blob=await new Promise(r=>src.toBlob(r,'image/png'));
+  const out=await fn(blob,{model:hq?'isnet_fp16':'isnet_quint8',output:{format:'image/png'},
+    progress:(k,cur,tot)=>{if(tot>0&&/fetch/.test(k))msg('imgMsg','Scarico il modello IA (solo la prima volta): '+Math.round(cur/tot*100)+'%')}});
+  const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(out);});
+  const c=document.createElement('canvas');c.width=im.width;c.height=im.height;c.getContext('2d').drawImage(im,0,0);
+  cache[key]=c;return c;
+}
+async function processImage(){
+  const seq=++procSeq;
+  if(!srcImg){prodCanvas=null;draw();return;}
+  const mode=$('cutMode').value;
+  let c;
+  if(mode==='ai'||mode==='aihq'){
+    if(!prodCanvas)prodCanvas=trimCanvas(scaledCanvas(srcImg,1400));
+    draw();
+    msg('imgMsg','✂️ Scontorno con intelligenza artificiale in corso…');
+    try{c=await aiCut(srcImg,mode==='aihq');if(seq!==procSeq)return;msg('imgMsg','Foto scontornata. Se non ti piace, prova un\'altra foto o la qualità alta.','ok');}
+    catch(e){if(seq!==procSeq)return;console.warn(e);msg('imgMsg','Scontorno IA non riuscito ('+(e.message||e)+'): uso quello rapido.','err');c=fastCut(scaledCanvas(srcImg,1400));}
+  }else if(mode==='fast'){c=fastCut(scaledCanvas(srcImg,1400));}
+  else c=scaledCanvas(srcImg,1400);
+  if(seq!==procSeq)return;
+  prodCanvas=trimCanvas(c);draw();
 }
 
 function loadFile(file,cb){
   if(!file||!file.type.startsWith('image/')){msg('imgMsg','Il file non è un\'immagine.','err');return;}
   const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>cb(im,fr.result);im.onerror=()=>msg('imgMsg','Immagine non leggibile.','err');im.src=fr.result;};fr.readAsDataURL(file);
 }
-function setProduct(im){srcImg=im;imgPos={dx:0,dy:0};$('scale').value=100;processImage();msg('imgMsg','Foto inserita. Se il ritaglio non è pulito, regola la precisione o scegline un\'altra.','ok');}
+function setProduct(im){srcImg=im;prodCanvas=null;imgPos={dx:0,dy:0};$('scale').value=100;msg('imgMsg','Foto inserita.','ok');processImage();}
 
 /* ---------- ricerca automatica ---------- */
 let searchSeq=0,lastQuery='';
@@ -388,7 +429,11 @@ async function urlToImage(url){
 }
 async function pick(item,btn){
   msg('imgMsg','Carico la foto…');
-  try{const im=await urlToImage(item.full);setProduct(im);markSel(btn);}
+  try{let im=null;
+    if(item.viaSrv){for(const u of [item.full,item.thumb]){try{im=await urlToImage(SRV+'/?img='+encodeURIComponent(u));if(im.width>=120)break;}catch(e){}}
+      if(!im)throw new Error('x');}
+    else im=await urlToImage(item.full);
+    setProduct(im);markSel(btn);}
   catch(e){msg('imgMsg','Questa foto non si può usare, scegline un\'altra.','err');}
 }
 async function autoSearch(force){
@@ -397,6 +442,16 @@ async function autoSearch(force){
   if(!force&&q===lastQuery)return;if(q!==lastQuery)curPage=1;lastQuery=q;
   const seq=++searchSeq;msg('searchMsg','Cerco foto di "'+q+'"…');$('results').innerHTML='';
   let items=[];
+  if(SRV){
+    try{const r=await searchSrv(q,curPage);if(seq!==searchSeq)return;
+      if(r.items.length){
+        msg('searchMsg','Risultati da '+(r.source||'server')+'. Tocca una foto per sceglierla.','');
+        curItems=r.items.slice(0,16);curIdx=0;
+        curItems.forEach((it,i)=>{const bt=document.createElement('button');bt.style.backgroundImage='url("'+it.thumb+'")';bt.onclick=()=>{curIdx=i;pick(it,bt)};$('results').appendChild(bt);});
+        if(!manualPhoto)pick(curItems[0],$('results').firstChild);
+        return;}
+    }catch(e){console.warn(e);msg('srvMsg','Server non raggiungibile ('+(e.message||e)+'): uso la ricerca base.','err');}
+  }
   const [a,b]=await Promise.allSettled([searchOFF(q,curPage),searchWiki(q.split(/\s+/).slice(0,2).join(' '),curPage)]);
   if(a.status==='fulfilled')items=items.concat(a.value);
   if(b.status==='fulfilled')items=items.concat(b.value);
@@ -408,6 +463,14 @@ async function autoSearch(force){
   if(!manualPhoto)pick(curItems[0],$('results').firstChild);
 }
 let manualPhoto=false,searchTimer,curItems=[],curIdx=0,curPage=1;
+let SRV=(load('vol_srv')||'').trim();
+$('srvUrl').value=SRV;
+$('srvSave').onclick=()=>{SRV=$('srvUrl').value.trim().replace(/\/+$/,'');if(SRV&&!/^https?:\/\//.test(SRV))SRV='https://'+SRV;$('srvUrl').value=SRV;save('vol_srv',SRV);msg('srvMsg',SRV?'Server salvato: ora la ricerca usa Google.':'Server rimosso.','ok');curPage=1;lastQuery='';autoSearch(true);};
+$('copyWorker').onclick=async()=>{try{const t=await (await fetch('worker.js',{cache:'no-store'})).text();await navigator.clipboard.writeText(t);msg('srvMsg','Codice copiato! Incollalo nell\'editor di Cloudflare.','ok');}catch(e){msg('srvMsg','Copia non riuscita: apri '+location.origin+location.pathname.replace(/[^/]*$/,'')+'worker.js e copia il testo.','err');}};
+async function searchSrv(q,page){
+  const r=await fetch(SRV+'/?q='+encodeURIComponent(q)+'&page='+page);if(!r.ok)throw new Error('server '+r.status);
+  const j=await r.json();return {items:(j.items||[]).map(it=>({thumb:it.thumb||it.full,full:it.full,viaSrv:true})),source:j.source||''};
+}
 const inClaude=/claude\.ai|claudeusercontent|anthropic/.test(location.href)||!!(window.claude);
 if(inClaude){setTimeout(()=>msg('searchMsg','⚠️ Sei dentro Claude: qui la ricerca e la fotocamera non funzionano. Scarica il file e aprilo con Chrome.','err'),50);}
 function nextResult(){
@@ -418,7 +481,7 @@ function nextResult(){
   else{curPage++;autoSearch(true);}
 }
 $('searchBtn').onclick=nextResult;
-$('findBtn').onclick=()=>{manualPhoto=false;$('rmBg').checked=true;curPage=1;autoSearch(true);
+$('findBtn').onclick=()=>{manualPhoto=false;if($('cutMode').value==='none')$('cutMode').value='ai';curPage=1;autoSearch(true);
   const r=$('searchMsg');setTimeout(()=>r.scrollIntoView({behavior:'smooth',block:'center'}),100);};
 $('desc').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>autoSearch(false),1200);});
 function msg(id,t,cls){const m=$(id);m.textContent=t;m.className='msg '+(cls||'');if(id!=='dlMsg'){const d=$('dlMsg');d.textContent=t;d.className='msg '+(cls||'');}}
@@ -429,15 +492,16 @@ function msg(id,t,cls){const m=$(id);m.textContent=t;m.className='msg '+(cls||''
 $('unit').addEventListener('change',()=>{$('unitCustom').style.display=$('unit').value==='__c'?'block':'none';draw();});
 $('scale').addEventListener('input',draw);
 let tolTimer;$('tol').addEventListener('input',()=>{clearTimeout(tolTimer);tolTimer=setTimeout(processImage,120)});
-$('rmBg').addEventListener('change',processImage);
+$('cutMode').addEventListener('change',()=>{$('tolWrap').style.display=$('cutMode').value==='fast'?'block':'none';processImage();});
 $('resetPos').onclick=()=>{imgPos={dx:0,dy:0};$('scale').value=100;draw();};
 $('clearImg').onclick=()=>{manualPhoto=false;srcImg=null;prodCanvas=null;draw();msg('imgMsg','');};
 $('galBtn').onclick=()=>$('imgFile').click();
 $('camBtn').onclick=()=>$('camFile').click();
 ['imgFile','camFile'].forEach(id=>$(id).onchange=e=>{loadFile(e.target.files[0],im=>{manualPhoto=true;setProduct(im);markSel(null);});e.target.value='';});
 $('pickLogo').onclick=()=>$('logoFile').click();
-$('logoFile').onchange=e=>{loadFile(e.target.files[0],(im,url)=>{logoImg=im;save('vol_logo',url);draw();});e.target.value='';};
-$('clearLogo').onclick=()=>{logoImg=null;try{localStorage.removeItem('vol_logo')}catch(e){}draw();};
+$('logoFile').onchange=e=>{loadFile(e.target.files[0],(im,url)=>{save('vol_logo',url);logoMode='custom';save('vol_logoMode',logoMode);logoImg=im;draw();});e.target.value='';};
+$('clearLogo').onclick=()=>{logoMode='text';save('vol_logoMode',logoMode);applyLogo();};
+$('ardLogo').onclick=()=>{logoMode='default';save('vol_logoMode',logoMode);applyLogo();};
 
 function updSearch(){const q=($('desc').value||'').trim()+' sfondo bianco';$('gSearch').href='https://www.google.com/search?tbm=isch&q='+encodeURIComponent(q);}
 updSearch();
