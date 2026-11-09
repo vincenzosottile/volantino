@@ -81,7 +81,7 @@
 
     <div class="panel">
       <h3>Foto del prodotto</h3>
-      <div class="msg" id="searchMsg" style="margin-top:0;color:var(--muted)">La foto viene cercata in automatico dalla descrizione.</div>
+      <div class="msg" id="searchMsg" style="margin-top:0;color:var(--muted)">Scrivi il prodotto e premi «Cerca foto online e scontorna».</div>
       <div id="results"></div>
       <div class="btns">
         <button class="btn navy" id="searchBtn">🔄 Prova un'altra foto</button>
@@ -465,7 +465,7 @@ async function autoSearch(force){
 let manualPhoto=false,searchTimer,curItems=[],curIdx=0,curPage=1;
 let SRV=(load('vol_srv')||'').trim();
 $('srvUrl').value=SRV;
-$('srvSave').onclick=()=>{SRV=$('srvUrl').value.trim().replace(/\/+$/,'');if(SRV&&!/^https?:\/\//.test(SRV))SRV='https://'+SRV;$('srvUrl').value=SRV;save('vol_srv',SRV);msg('srvMsg',SRV?'Server salvato: ora la ricerca usa Google.':'Server rimosso.','ok');curPage=1;lastQuery='';autoSearch(true);};
+$('srvSave').onclick=()=>{SRV=$('srvUrl').value.trim().replace(/\/+$/,'');if(SRV&&!/^https?:\/\//.test(SRV))SRV='https://'+SRV;$('srvUrl').value=SRV;save('vol_srv',SRV);msg('srvMsg',SRV?'Server salvato: ora la ricerca usa Google.':'Server rimosso.','ok');curPage=1;lastQuery='';};
 $('copyWorker').onclick=async()=>{try{const t=await (await fetch('worker.js',{cache:'no-store'})).text();await navigator.clipboard.writeText(t);msg('srvMsg','Codice copiato! Incollalo nell\'editor di Cloudflare.','ok');}catch(e){msg('srvMsg','Copia non riuscita: apri '+location.origin+location.pathname.replace(/[^/]*$/,'')+'worker.js e copia il testo.','err');}};
 async function searchSrv(q,page){
   const r=await fetch(SRV+'/?q='+encodeURIComponent(q)+'&page='+page);if(!r.ok)throw new Error('server '+r.status);
@@ -483,7 +483,7 @@ function nextResult(){
 $('searchBtn').onclick=nextResult;
 $('findBtn').onclick=()=>{manualPhoto=false;if($('cutMode').value==='none')$('cutMode').value='ai';curPage=1;autoSearch(true);
   const r=$('searchMsg');setTimeout(()=>r.scrollIntoView({behavior:'smooth',block:'center'}),100);};
-$('desc').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>autoSearch(false),1200);});
+
 function msg(id,t,cls){const m=$(id);m.textContent=t;m.className='msg '+(cls||'');if(id!=='dlMsg'){const d=$('dlMsg');d.textContent=t;d.className='msg '+(cls||'');}}
 
 /* ---------- events ---------- */
@@ -551,7 +551,6 @@ $('shareBtn').onclick=()=>{draw();cv.toBlob(async b=>{const f=new File([b],fname
   try{if(navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'Volantino'});else msg('dlMsg','Condivisione non supportata, usa Scarica PNG.','err');}catch(e){}},'image/png');};
 /* ---------- start ---------- */
 draw();
-setTimeout(()=>autoSearch(false),600);
 if(document.fonts){Promise.all(['800 40px "Barlow Condensed"','400 40px "Lilita One"','800 40px "Baloo 2"'].map(f=>document.fonts.load(f))).then(draw).catch(draw);setTimeout(draw,1500);}
 </script>
 </body>
