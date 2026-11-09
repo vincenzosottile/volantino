@@ -93,7 +93,7 @@
         <label for="srvUrl">Indirizzo del server di ricerca</label>
         <input type="text" id="srvUrl" placeholder="https://volantino-ricerca.TUONOME.workers.dev" autocomplete="off" autocapitalize="off">
         <div class="btns"><button class="btn" id="srvSave">Salva</button><button class="btn" id="copyWorker">Copia codice del server</button></div>
-        <div class="msg" id="srvMsg" style="color:var(--muted)">Senza server la ricerca usa Open Food Facts e Wikimedia.</div>
+        <div class="msg" id="srvMsg" style="color:var(--muted)">Senza server la ricerca usa Open Food Facts (solo prodotti in commercio).</div>
       </details>
       <input type="file" id="camFile" accept="image/*" capture="environment">
       <input type="file" id="imgFile" accept="image/*">
@@ -295,12 +295,7 @@ function imgRect(){
 }
 function drawProduct(){
   const r=imgRect();
-  if(!r){
-    ctx.save();ctx.setLineDash([16,12]);ctx.lineWidth=4;ctx.strokeStyle='rgba(13,42,90,.35)';
-    rr(ctx,450,560,540,460,30);ctx.stroke();ctx.restore();
-    ctx.fillStyle='rgba(13,42,90,.45)';ctx.font='600 40px "Barlow Condensed"';ctx.textAlign='center';
-    ctx.fillText('FOTO DEL PRODOTTO',720,800);ctx.textAlign='left';return;
-  }
+  if(!r)return;
   ctx.save();ctx.shadowColor='rgba(0,0,0,.28)';ctx.shadowBlur=34;ctx.shadowOffsetY=18;
   ctx.drawImage(prodCanvas,r.x,r.y,r.w,r.h);ctx.restore();
 }
@@ -414,8 +409,8 @@ async function searchOFF(q,page=1){
     if(j.product){const n=j.product.product_name_it||j.product.product_name;if(n&&$('desc').value.trim()===q){$('desc').value=n;draw();}
       return j.product.image_front_url?[{thumb:j.product.image_front_url,full:j.product.image_front_url}]:[];}return [];}
   let list=[];
-  try{const j=await getJSON('https://search.openfoodfacts.org/search?page_size=10&page='+page+'&langs=it&fields=image_front_url,image_front_small_url&q='+encodeURIComponent(q));list=j.hits||[];}
-  catch(e){const j=await getJSON('https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=8&page='+page+'&lc=it&fields=image_front_url,image_front_small_url&search_terms='+encodeURIComponent(q));list=j.products||[];}
+  try{const j=await getJSON('https://search.openfoodfacts.org/search?page_size=16&page='+page+'&langs=it&sort_by=-unique_scans_n&fields=image_front_url,image_front_small_url&q='+encodeURIComponent(q));list=j.hits||[];}
+  catch(e){const j=await getJSON('https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=16&page='+page+'&lc=it&sort_by=unique_scans_n&fields=image_front_url,image_front_small_url&search_terms='+encodeURIComponent(q));list=j.products||[];}
   return list.filter(p=>p.image_front_url).map(p=>({thumb:p.image_front_small_url||p.image_front_url,full:p.image_front_url}));
 }
 async function searchWiki(q,page=1){
@@ -443,7 +438,7 @@ async function autoSearch(force){
   const seq=++searchSeq;msg('searchMsg','Cerco foto di "'+q+'"…');$('results').innerHTML='';
   let items=[];
   if(SRV){
-    try{const r=await searchSrv(q,curPage);if(seq!==searchSeq)return;
+    try{const r=await searchSrv(q+' prodotto supermercato',curPage);if(seq!==searchSeq)return;
       if(r.items.length){
         msg('searchMsg','Risultati da '+(r.source||'server')+'. Tocca una foto per sceglierla.','');
         curItems=r.items.slice(0,16);curIdx=0;
@@ -452,13 +447,13 @@ async function autoSearch(force){
         return;}
     }catch(e){console.warn(e);msg('srvMsg','Server non raggiungibile ('+(e.message||e)+'): uso la ricerca base.','err');}
   }
-  const [a,b]=await Promise.allSettled([searchOFF(q,curPage),searchWiki(q.split(/\s+/).slice(0,2).join(' '),curPage)]);
+  const [a,b]=await Promise.allSettled([searchOFF(q,curPage),Promise.resolve([])]);
   if(a.status==='fulfilled')items=items.concat(a.value);
   if(b.status==='fulfilled')items=items.concat(b.value);
   if(seq!==searchSeq)return;
   if(!items.length){const det=[a.status==='rejected'?'Open Food Facts: '+(a.reason&&a.reason.message||a.reason):'',b.status==='rejected'?'Wikimedia: '+(b.reason&&b.reason.message||b.reason):''].filter(Boolean).join(' | ');msg('searchMsg',(a.status==='rejected'&&b.status==='rejected')?'Ricerca bloccata ('+det+'). '+(inClaude?'Stai usando la pagina dentro Claude: aprila con Chrome.':'Controlla la connessione.'):'Nessuna foto trovata: prova con meno parole (es. \"prosciutto crudo\"), fai una foto o usa la galleria.'+(det?' ['+det+']':''),'err');return;}
   msg('searchMsg','Tocca una foto per sceglierla.','');
-  curItems=items.slice(0,12);curIdx=0;
+  curItems=items.slice(0,16);curIdx=0;
   curItems.forEach((it,i)=>{const bt=document.createElement('button');bt.style.backgroundImage='url("'+it.thumb+'")';bt.onclick=()=>{curIdx=i;pick(it,bt)};$('results').appendChild(bt);});
   if(!manualPhoto)pick(curItems[0],$('results').firstChild);
 }
@@ -503,7 +498,7 @@ $('logoFile').onchange=e=>{loadFile(e.target.files[0],(im,url)=>{save('vol_logo'
 $('clearLogo').onclick=()=>{logoMode='text';save('vol_logoMode',logoMode);applyLogo();};
 $('ardLogo').onclick=()=>{logoMode='default';save('vol_logoMode',logoMode);applyLogo();};
 
-function updSearch(){const q=($('desc').value||'').trim()+' sfondo bianco';$('gSearch').href='https://www.google.com/search?tbm=isch&q='+encodeURIComponent(q);}
+function updSearch(){const q=($('desc').value||'').trim()+' prodotto supermercato';$('gSearch').href='https://www.google.com/search?tbm=isch&q='+encodeURIComponent(q);}
 updSearch();
 
 const drop=$('drop')||document.createElement('div');
