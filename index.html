@@ -102,7 +102,7 @@
         <label for="srvUrl">Indirizzo del server di ricerca</label>
         <input type="text" id="srvUrl" placeholder="https://volantino-ricerca.TUONOME.workers.dev" autocomplete="off" autocapitalize="off">
         <div class="btns"><button class="btn" id="srvSave">Salva</button><button class="btn" id="copyWorker">Copia codice del server</button></div>
-        <div class="msg" id="srvMsg" style="color:var(--muted)">Senza server la ricerca usa Bing Immagini tramite un servizio pubblico gratuito (a volte lento). Con il tuo server Cloudflare usa Google ed è più affidabile.</div>
+        <div class="msg" id="srvMsg" style="color:var(--muted)">Senza server la ricerca usa Google Immagini (o Bing se Google non risponde) tramite un servizio pubblico gratuito, a volte lento. Con il tuo server Cloudflare usa Google ed è più affidabile.</div>
       </details>
       <input type="file" id="camFile" accept="image/*" capture="environment">
       <input type="file" id="imgFile" accept="image/*">
@@ -470,6 +470,17 @@ async function searchBingPublic(q,page){
   while((m=re.exec(html))&&out.length<16)out.push({full:m[1].replace(/\\\//g,'/'),thumb:m[2].replace(/\\\//g,'/'),viaProxy:true});
   return out;
 }
+function unescJs(x){try{return JSON.parse('"'+x.replace(/"/g,'\\"')+'"')}catch(e){return x}}
+async function searchGooglePublic(q,page){
+  const url='https://www.google.com/search?tbm=isch&hl=it&gl=it&safe=active&ijn='+(page-1)+'&q='+encodeURIComponent(q);
+  const html=await viaProxy(url,true);
+  const out=[],seen=new Set();const re=/\["(https?:\/\/[^"]+?)",(\d+),(\d+)\]/g;let m,last=null;
+  while((m=re.exec(html))&&out.length<16){const u=unescJs(m[1]);
+    if(/gstatic\.com\/images/.test(u)){last=u;continue;}
+    if(/google\.|gstatic\./.test(u)||seen.has(u))continue;
+    seen.add(u);out.push({full:u,thumb:last||u,viaProxy:true});last=null;}
+  return out;
+}
 async function proxyImage(u){const blob=await viaProxy(u,false);return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(blob);});}
 async function autoSearch(force){
   const q=($('desc').value||'').trim();
@@ -478,10 +489,14 @@ async function autoSearch(force){
   const seq=++searchSeq;msg('searchMsg','Cerco foto di "'+q+'"…');$('results').innerHTML='';
   let items=[];
   if(!SRV){
-    msg('searchMsg','Cerco su Bing Immagini…');
-    try{const items=await searchBingPublic(q+' prodotto supermercato',curPage);if(seq!==searchSeq)return;
+    msg('searchMsg','Cerco su Google Immagini…');
+    try{const qq=q+' prodotto supermercato';let items=[],src='Google';
+      try{items=await searchGooglePublic(qq,curPage);}catch(e){console.warn('google',e);}
+      if(seq!==searchSeq)return;
+      if(items.length<4){src='Bing (Google non ha risposto)';msg('searchMsg','Google non risponde, cerco su Bing…');items=await searchBingPublic(qq,curPage);}
+      if(seq!==searchSeq)return;
       if(items.length){
-        msg('searchMsg','Risultati da Bing Immagini. Tocca una foto per sceglierla.','');
+        msg('searchMsg','Risultati da '+src+'. Tocca una foto per sceglierla.','');
         curItems=items;curIdx=0;
         curItems.forEach((it,i)=>{const bt=document.createElement('button');bt.style.backgroundImage='url("'+it.thumb+'")';bt.onclick=()=>{curIdx=i;pick(it,bt)};$('results').appendChild(bt);});
         if(!manualPhoto)pick(curItems[0],$('results').firstChild);
