@@ -84,7 +84,7 @@
       <div class="msg" id="searchMsg" style="margin-top:0;color:var(--muted)">La foto viene cercata in automatico dalla descrizione.</div>
       <div id="results"></div>
       <div class="btns">
-        <button class="btn navy" id="searchBtn">🔍 Cerca di nuovo</button>
+        <button class="btn navy" id="searchBtn">🔄 Prova un'altra foto</button>
         <button class="btn" id="camBtn">📷 Fotocamera</button>
         <button class="btn" id="galBtn">🖼️ Galleria</button>
       </div>
@@ -368,17 +368,17 @@ function setProduct(im){srcImg=im;imgPos={dx:0,dy:0};$('scale').value=100;proces
 let searchSeq=0,lastQuery='';
 function markSel(btn){document.querySelectorAll('#results button').forEach(b=>b.classList.toggle('sel',b===btn));}
 async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json();}
-async function searchOFF(q){
+async function searchOFF(q,page=1){
   if(/^\d{8,14}$/.test(q)){const j=await getJSON('https://world.openfoodfacts.org/api/v2/product/'+q+'.json?fields=product_name_it,product_name,image_front_url');
     if(j.product){const n=j.product.product_name_it||j.product.product_name;if(n&&$('desc').value.trim()===q){$('desc').value=n;draw();}
       return j.product.image_front_url?[{thumb:j.product.image_front_url,full:j.product.image_front_url}]:[];}return [];}
   let list=[];
-  try{const j=await getJSON('https://search.openfoodfacts.org/search?page_size=10&langs=it&fields=image_front_url,image_front_small_url&q='+encodeURIComponent(q));list=j.hits||[];}
-  catch(e){const j=await getJSON('https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=8&lc=it&fields=image_front_url,image_front_small_url&search_terms='+encodeURIComponent(q));list=j.products||[];}
+  try{const j=await getJSON('https://search.openfoodfacts.org/search?page_size=10&page='+page+'&langs=it&fields=image_front_url,image_front_small_url&q='+encodeURIComponent(q));list=j.hits||[];}
+  catch(e){const j=await getJSON('https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=8&page='+page+'&lc=it&fields=image_front_url,image_front_small_url&search_terms='+encodeURIComponent(q));list=j.products||[];}
   return list.filter(p=>p.image_front_url).map(p=>({thumb:p.image_front_small_url||p.image_front_url,full:p.image_front_url}));
 }
-async function searchWiki(q){
-  const u='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=8&gsrsearch='+encodeURIComponent('filetype:bitmap '+q)+'&prop=imageinfo&iiprop=url&iiurlwidth=900';
+async function searchWiki(q,page=1){
+  const u='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=8&gsroffset='+((page-1)*8)+'&gsrsearch='+encodeURIComponent('filetype:bitmap '+q)+'&prop=imageinfo&iiprop=url&iiurlwidth=900';
   const j=await getJSON(u);const pages=j.query?Object.values(j.query.pages).sort((a,b)=>a.index-b.index):[];
   return pages.filter(p=>p.imageinfo&&p.imageinfo[0].thumburl).map(p=>({thumb:p.imageinfo[0].thumburl,full:p.imageinfo[0].thumburl}));
 }
@@ -394,23 +394,31 @@ async function pick(item,btn){
 async function autoSearch(force){
   const q=($('desc').value||'').trim();
   if(q.length<3){return;}
-  if(!force&&q===lastQuery)return;lastQuery=q;
+  if(!force&&q===lastQuery)return;if(q!==lastQuery)curPage=1;lastQuery=q;
   const seq=++searchSeq;msg('searchMsg','Cerco foto di "'+q+'"…');$('results').innerHTML='';
   let items=[];
-  const [a,b]=await Promise.allSettled([searchOFF(q),searchWiki(q.split(/\s+/).slice(0,2).join(' '))]);
+  const [a,b]=await Promise.allSettled([searchOFF(q,curPage),searchWiki(q.split(/\s+/).slice(0,2).join(' '),curPage)]);
   if(a.status==='fulfilled')items=items.concat(a.value);
   if(b.status==='fulfilled')items=items.concat(b.value);
   if(seq!==searchSeq)return;
   if(!items.length){const det=[a.status==='rejected'?'Open Food Facts: '+(a.reason&&a.reason.message||a.reason):'',b.status==='rejected'?'Wikimedia: '+(b.reason&&b.reason.message||b.reason):''].filter(Boolean).join(' | ');msg('searchMsg',(a.status==='rejected'&&b.status==='rejected')?'Ricerca bloccata ('+det+'). '+(inClaude?'Stai usando la pagina dentro Claude: aprila con Chrome.':'Controlla la connessione.'):'Nessuna foto trovata: prova con meno parole (es. \"prosciutto crudo\"), fai una foto o usa la galleria.'+(det?' ['+det+']':''),'err');return;}
   msg('searchMsg','Tocca una foto per sceglierla.','');
-  items.slice(0,12).forEach((it,i)=>{const bt=document.createElement('button');bt.style.backgroundImage='url("'+it.thumb+'")';bt.onclick=()=>pick(it,bt);$('results').appendChild(bt);});
-  if(!srcImg||force!=='keep'){const first=$('results').firstChild;if(first&&!manualPhoto)pick(items[0],first);}
+  curItems=items.slice(0,12);curIdx=0;
+  curItems.forEach((it,i)=>{const bt=document.createElement('button');bt.style.backgroundImage='url("'+it.thumb+'")';bt.onclick=()=>{curIdx=i;pick(it,bt)};$('results').appendChild(bt);});
+  if(!manualPhoto)pick(curItems[0],$('results').firstChild);
 }
-let manualPhoto=false,searchTimer;
+let manualPhoto=false,searchTimer,curItems=[],curIdx=0,curPage=1;
 const inClaude=/claude\.ai|claudeusercontent|anthropic/.test(location.href)||!!(window.claude);
 if(inClaude){setTimeout(()=>msg('searchMsg','⚠️ Sei dentro Claude: qui la ricerca e la fotocamera non funzionano. Scarica il file e aprilo con Chrome.','err'),50);}
-$('searchBtn').onclick=()=>autoSearch(true);
-$('findBtn').onclick=()=>{manualPhoto=false;$('rmBg').checked=true;autoSearch(true);
+function nextResult(){
+  const q=($('desc').value||'').trim();
+  if(q!==lastQuery||!curItems.length){curPage=1;autoSearch(true);return;}
+  manualPhoto=false;
+  if(curIdx+1<curItems.length){curIdx++;pick(curItems[curIdx],$('results').children[curIdx]);msg('searchMsg','Foto '+(curIdx+1)+' di '+curItems.length+'. Premi di nuovo per la successiva.','');}
+  else{curPage++;autoSearch(true);}
+}
+$('searchBtn').onclick=nextResult;
+$('findBtn').onclick=()=>{manualPhoto=false;$('rmBg').checked=true;curPage=1;autoSearch(true);
   const r=$('searchMsg');setTimeout(()=>r.scrollIntoView({behavior:'smooth',block:'center'}),100);};
 $('desc').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>autoSearch(false),1200);});
 function msg(id,t,cls){const m=$(id);m.textContent=t;m.className='msg '+(cls||'');if(id!=='dlMsg'){const d=$('dlMsg');d.textContent=t;d.className='msg '+(cls||'');}}
