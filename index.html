@@ -102,7 +102,7 @@
         <label for="srvUrl">Indirizzo del server di ricerca</label>
         <input type="text" id="srvUrl" placeholder="https://volantino-ricerca.TUONOME.workers.dev" autocomplete="off" autocapitalize="off">
         <div class="btns"><button class="btn" id="srvSave">Salva</button><button class="btn" id="copyWorker">Copia codice del server</button></div>
-        <div class="msg" id="srvMsg" style="color:var(--muted)">Senza server la ricerca usa Open Food Facts (solo prodotti in commercio).</div>
+        <div class="msg" id="srvMsg" style="color:var(--muted)">Senza server la ricerca usa Bing Immagini tramite un servizio pubblico gratuito (a volte lento). Con il tuo server Cloudflare usa Google ed è più affidabile.</div>
       </details>
       <input type="file" id="camFile" accept="image/*" capture="environment">
       <input type="file" id="imgFile" accept="image/*">
@@ -435,18 +435,59 @@ async function urlToImage(url){
 async function pick(item,btn){
   msg('imgMsg','Carico la foto…');
   try{let im=null;
-    if(item.viaSrv){for(const u of [item.full,item.thumb]){try{im=await urlToImage(SRV+'/?img='+encodeURIComponent(u));if(im.width>=120)break;}catch(e){}}
+    if(item.viaProxy){for(const u of [item.full,item.thumb]){try{im=await proxyImage(u);if(im.width>=120)break;}catch(e){}}
+      if(!im)throw new Error('x');}
+    else if(item.viaSrv){for(const u of [item.full,item.thumb]){try{im=await urlToImage(SRV+'/?img='+encodeURIComponent(u));if(im.width>=120)break;}catch(e){}}
       if(!im)throw new Error('x');}
     else im=await urlToImage(item.full);
     setProduct(im);markSel(btn);}
   catch(e){msg('imgMsg','Questa foto non si può usare, scegline un\'altra.','err');}
 }
+const PROXIES=[
+  u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+  u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
+  u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)
+];
+let proxyOk=0;
+async function viaProxy(u,asText){
+  let lastErr;
+  for(let k=0;k<PROXIES.length;k++){
+    const i=(proxyOk+k)%PROXIES.length;
+    try{const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),12000);
+      const r=await fetch(PROXIES[i](u),{signal:ctl.signal});clearTimeout(t);
+      if(!r.ok)throw new Error('proxy '+r.status);
+      const out=asText?await r.text():await r.blob();
+      if(!asText&&!(out.type||'').startsWith('image/')&&out.size<2000)throw new Error('non immagine');
+      proxyOk=i;return out;}catch(e){lastErr=e;}
+  }
+  throw lastErr||new Error('proxy');
+}
+function decodeEnt(s){return s.replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>');}
+async function searchBingPublic(q,page){
+  const url='https://www.bing.com/images/async?q='+encodeURIComponent(q)+'&first='+((page-1)*35)+'&count=35&mmasync=1&setlang=it&cc=IT';
+  const html=decodeEnt(await viaProxy(url,true));
+  const out=[];const re=/"murl":"(.*?)".*?"turl":"(.*?)"/g;let m;
+  while((m=re.exec(html))&&out.length<16)out.push({full:m[1].replace(/\\\//g,'/'),thumb:m[2].replace(/\\\//g,'/'),viaProxy:true});
+  return out;
+}
+async function proxyImage(u){const blob=await viaProxy(u,false);return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(blob);});}
 async function autoSearch(force){
   const q=($('desc').value||'').trim();
   if(q.length<3){return;}
   if(!force&&q===lastQuery)return;if(q!==lastQuery)curPage=1;lastQuery=q;
   const seq=++searchSeq;msg('searchMsg','Cerco foto di "'+q+'"…');$('results').innerHTML='';
   let items=[];
+  if(!SRV){
+    msg('searchMsg','Cerco su Bing Immagini…');
+    try{const items=await searchBingPublic(q+' prodotto supermercato',curPage);if(seq!==searchSeq)return;
+      if(items.length){
+        msg('searchMsg','Risultati da Bing Immagini. Tocca una foto per sceglierla.','');
+        curItems=items;curIdx=0;
+        curItems.forEach((it,i)=>{const bt=document.createElement('button');bt.style.backgroundImage='url("'+it.thumb+'")';bt.onclick=()=>{curIdx=i;pick(it,bt)};$('results').appendChild(bt);});
+        if(!manualPhoto)pick(curItems[0],$('results').firstChild);
+        return;}
+    }catch(e){console.warn('bing pubblico',e);if(seq!==searchSeq)return;}
+  }
   if(SRV){
     try{const r=await searchSrv(q+' prodotto supermercato',curPage);if(seq!==searchSeq)return;
       if(r.items.length){
