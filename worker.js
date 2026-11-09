@@ -1,4 +1,4 @@
-// Server di ricerca immagini per "Crea Volantino Offerte"  (versione 2)
+// Server di ricerca immagini per "Crea Volantino Offerte"  (versione 3)
 // Da incollare in un Cloudflare Worker (piano gratuito).
 // Uso:  /?q=prosciutto crudo            -> elenco immagini
 //       /?q=prosciutto crudo&debug=1    -> diagnosi: cosa risponde ogni motore
@@ -62,23 +62,40 @@ function parseBing(html) {
     const re2 = /murl&quot;:&quot;(.*?)&quot;.*?turl&quot;:&quot;(.*?)&quot;/g;
     while ((m = re2.exec(raw)) && items.length < 100) items.push({ full: decodeHtml(m[1]), thumb: decodeHtml(m[2]) });
   }
+  if (!items.length) {
+    const re3 = /mediaurl=([^&"']+)/g;
+    while ((m = re3.exec(raw)) && items.length < 100) {
+      let u; try { u = decodeURIComponent(decodeHtml(m[1])); } catch (e) { continue; }
+      items.push({ full: u, thumb: u });
+    }
+  }
   return items;
+}
+function bingSample(html) {
+  const keys = ['iusc', 'murl', 'mediaurl', 'turl', 'mimg', 'OIP.', 'captcha', 'challenge', 'consent'];
+  const counts = {}; keys.forEach(k => counts[k] = (html.split(k).length - 1));
+  const t = (html.match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
+  const i = Math.max(html.indexOf('iusc'), html.indexOf('mediaurl'), html.indexOf('OIP.'));
+  return { titolo: t, conteggi: counts, campione: i > 0 ? html.slice(Math.max(0, i - 150), i + 350) : html.slice(0, 400) };
 }
 async function bing(q, page) {
   const first = (page - 1) * 35 + 1;
-  const urls = [
-    'https://www.bing.com/images/async?q=' + encodeURIComponent(q) + '&first=' + first + '&count=35&mmasync=1&setlang=it-IT&cc=IT',
-    'https://www.bing.com/images/search?q=' + encodeURIComponent(q) + '&first=' + first + '&form=HDRSC2&setlang=it-IT&cc=IT'
+  const attempts = [
+    ['https://www.bing.com/images/async?q=' + encodeURIComponent(q) + '&first=' + first + '&count=35&mmasync=1&setlang=it-IT&cc=IT', {}],
+    ['https://www.bing.com/images/search?q=' + encodeURIComponent(q) + '&first=' + first + '&form=HDRSC2&setlang=it-IT&cc=IT', {}],
+    ['https://www.bing.com/images/async?q=' + encodeURIComponent(q) + '&first=' + first + '&count=35&mmasync=1', { 'User-Agent': UA_MOB }],
+    ['https://www.bing.com/images/search?q=' + encodeURIComponent(q) + '&first=' + first + '&FORM=HDRSC3', { 'User-Agent': UA_MOB }]
   ];
-  let last = '';
-  for (const url of urls) {
-    const r = await get(url, { 'Cookie': 'SRCHHPGUSR=ADLT=MODERATE; _EDGE_CD=m=it-it' });
+  let last = '', sample = null;
+  for (const [url, h] of attempts) {
+    const r = await get(url, h);
     if (r.status !== 200) { last = 'HTTP ' + r.status; continue; }
     const items = parseBing(r.text);
     if (items.length) return { items: uniq(items) };
     last = 'nessun risultato leggibile (' + r.text.length + ' caratteri)';
+    if (!sample) sample = bingSample(r.text);
   }
-  throw new Error(last);
+  const e = new Error(last); e.sample = sample; throw e;
 }
 
 // ---------------- DuckDuckGo ----------------
@@ -109,7 +126,19 @@ async function yahoo(q, page) {
   return { items: uniq(items) };
 }
 
-const ENGINES = [['Google', google], ['Bing', bing], ['DuckDuckGo', duck], ['Yahoo', yahoo]];
+// ---------------- Qwant ----------------
+async function qwant(q, page) {
+  const url = 'https://api.qwant.com/v3/search/images?count=50&locale=it_IT&safesearch=1&offset=' + ((page - 1) * 50) + '&q=' + encodeURIComponent(q);
+  const r = await fetch(url, { headers: { ...BASE_HEADERS, 'Accept': 'application/json', 'Origin': 'https://www.qwant.com', 'Referer': 'https://www.qwant.com/' } });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  const list = (((j.data || {}).result || {}).items || []);
+  const items = list.map(x => ({ full: x.media, thumb: x.thumbnail ? (x.thumbnail.startsWith('//') ? 'https:' + x.thumbnail : x.thumbnail) : x.media }));
+  if (!items.length) throw new Error('nessun risultato');
+  return { items: uniq(items) };
+}
+
+const ENGINES = [['Google', google], ['Bing', bing], ['Qwant', qwant], ['DuckDuckGo', duck], ['Yahoo', yahoo]];
 
 // ---------------- Proxy immagini ----------------
 async function proxyImage(target) {
@@ -129,7 +158,7 @@ export default {
     if (img) return proxyImage(img);
 
     const q = (u.searchParams.get('q') || '').trim();
-    if (!q) return json({ ok: true, version: 2, info: 'Server di ricerca del volantino attivo. Usa ?q=prodotto' });
+    if (!q) return json({ ok: true, version: 3, info: 'Server di ricerca del volantino attivo. Usa ?q=prodotto' });
     const page = Math.max(1, parseInt(u.searchParams.get('page') || '1', 10) || 1);
     const debug = u.searchParams.get('debug');
 
@@ -139,16 +168,16 @@ export default {
       await Promise.all(ENGINES.map(async ([name, fn]) => {
         const t0 = Date.now();
         try { const r = await fn(q, page); report[name] = { ok: true, risultati: r.items.length, ms: Date.now() - t0, esempio: r.items[0] }; }
-        catch (e) { report[name] = { ok: false, errore: String(e.message || e), ms: Date.now() - t0 }; }
+        catch (e) { report[name] = { ok: false, errore: String(e.message || e), ms: Date.now() - t0, dettagli: e.sample || undefined }; }
       }));
-      return json({ version: 2, q, report });
+      return json({ version: 3, q, report });
     }
     for (const [name, fn] of ENGINES) {
       try {
         const r = await fn(q, page);
-        if (r.items.length) return json({ version: 2, source: name, items: r.items.slice(0, 100), errors });
+        if (r.items.length) return json({ version: 3, source: name, items: r.items.slice(0, 100), errors });
       } catch (e) { errors.push(name + ': ' + String(e.message || e)); }
     }
-    return json({ version: 2, source: '', items: [], errors });
+    return json({ version: 3, source: '', items: [], errors });
   }
 };
