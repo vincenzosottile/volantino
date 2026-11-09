@@ -536,7 +536,7 @@ async function moreResults(){
   msg('searchMsg','Altre foto: da '+(viewOff+1)+' a '+(viewOff+curItems.length)+'. Tocca una foto per inserirla.','');
 }
 let manualPhoto=false,searchTimer,curItems=[],curIdx=0,curPage=1;
-let SRV=(load('vol_srv')||'').trim();
+let SRV=(load('vol_srv')||'https://volantino-ricerca.vincenzosottile.workers.dev').trim();
 $('srvUrl').value=SRV;
 $('srvSave').onclick=()=>{SRV=$('srvUrl').value.trim().replace(/\/+$/,'');if(SRV&&!/^https?:\/\//.test(SRV))SRV='https://'+SRV;$('srvUrl').value=SRV;save('vol_srv',SRV);msg('srvMsg',SRV?'Server salvato: ora la ricerca usa Google.':'Server rimosso.','ok');curPage=1;lastQuery='';};
 $('copyWorker').onclick=async()=>{try{const t=await (await fetch('worker.js',{cache:'no-store'})).text();await navigator.clipboard.writeText(t);msg('srvMsg','Codice copiato! Incollalo nell\'editor di Cloudflare.','ok');}catch(e){msg('srvMsg','Copia non riuscita: apri '+location.origin+location.pathname.replace(/[^/]*$/,'')+'worker.js e copia il testo.','err');}};
