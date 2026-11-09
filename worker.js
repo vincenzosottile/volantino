@@ -27,7 +27,7 @@ function decodeHtml(s) {
 
 // ---------- Google Immagini ----------
 async function google(q, page) {
-  const url = 'https://www.google.com/search?tbm=isch&hl=it&gl=it&safe=active&ijn=' + (page - 1) + '&q=' + encodeURIComponent(q);
+  const url = 'https://www.google.com/search?tbm=isch&hl=it&gl=it&safe=active&ijn=' + (page - 1) + '&start=' + ((page - 1) * 100) + '&q=' + encodeURIComponent(q);
   const r = await fetch(url, {
     headers: {
       'User-Agent': DESKTOP_UA,
@@ -42,7 +42,7 @@ async function google(q, page) {
   // Coppie [miniatura gstatic, w, h] seguite da [originale, w, h]
   const re = /\["(https?:\/\/[^"]+?)",(\d+),(\d+)\]/g;
   let m, lastThumb = null;
-  while ((m = re.exec(html)) && items.length < 40) {
+  while ((m = re.exec(html)) && items.length < 100) {
     const u = unescapeJs(m[1]);
     if (/gstatic\.com\/images/.test(u)) { lastThumb = u; continue; }
     if (/google\.|gstatic\./.test(u)) continue;
@@ -100,9 +100,9 @@ export default {
 
     let items = [], source = [], errors = [];
     try { items = await google(q, page); if (items.length) source.push('Google'); } catch (e) { errors.push(String(e.message || e)); }
-    if (items.length < 6) {
+    if (items.length < 1) {
       try { const b = await bing(q, page); if (b.length) { items = items.concat(b); source.push('Bing'); } } catch (e) { errors.push(String(e.message || e)); }
     }
-    return json({ source: source.join(' + '), items: items.slice(0, 30), errors });
+    return json({ source: source.join(' + '), items: items.slice(0, 100), errors });
   }
 };
