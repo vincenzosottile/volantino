@@ -1,4 +1,4 @@
-// Server di ricerca immagini per "Crea Volantino Offerte"  (versione 4)
+// Server di ricerca immagini per "Crea Volantino Offerte"  (versione 5)
 // Da incollare in un Cloudflare Worker (piano gratuito).
 // Uso:  /?q=prosciutto crudo            -> elenco immagini
 //       /?q=prosciutto crudo&debug=1    -> diagnosi: cosa risponde ogni motore
@@ -142,7 +142,20 @@ async function qwant(q, page) {
   return { items: uniq(items) };
 }
 
-const ENGINES = [['Google', google], ['Bing', bing], ['Qwant', qwant], ['DuckDuckGo', duck], ['Yahoo', yahoo]];
+const ENGINES = [['DuckDuckGo', duck], ['Bing', bing], ['Google', google], ['Qwant', qwant], ['Yahoo', yahoo]];
+
+// Varianti della ricerca, dalla più precisa alla più semplice
+function variants(q) {
+  const out = [q];
+  const add = t => { t = t.replace(/\s+/g, ' ').trim(); if (t && !out.includes(t)) out.push(t); };
+  const base = q.replace(/\b(prodotto|supermercato)\b/gi, ' ');
+  add(base);
+  const noSize = base.replace(/\b\d+([.,]\d+)?\s*(lt|l|litri|litro|ml|cl|kg|g|gr|grammi|pz|pezzi|x\s*\d+)\b/gi, ' ').replace(/\bx\s*\d+\b/gi, ' ');
+  add(noSize);
+  const words = noSize.replace(/\s+/g, ' ').trim().split(' ');
+  for (let n = words.length - 1; n >= 1; n--) add(words.slice(0, n).join(' '));
+  return out;
+}
 
 // ---------------- Proxy immagini ----------------
 async function proxyImage(target) {
@@ -162,7 +175,7 @@ export default {
     if (img) return proxyImage(img);
 
     const q = (u.searchParams.get('q') || '').trim();
-    if (!q) return json({ ok: true, version: 4, info: 'Server di ricerca del volantino attivo. Usa ?q=prodotto' });
+    if (!q) return json({ ok: true, version: 5, info: 'Server di ricerca del volantino attivo. Usa ?q=prodotto' });
     const page = Math.max(1, parseInt(u.searchParams.get('page') || '1', 10) || 1);
     const debug = u.searchParams.get('debug');
 
@@ -174,14 +187,17 @@ export default {
         try { const r = await fn(q, page); report[name] = { ok: true, risultati: r.items.length, ms: Date.now() - t0, esempio: r.items[0] }; }
         catch (e) { report[name] = { ok: false, errore: String(e.message || e), ms: Date.now() - t0, dettagli: e.sample || undefined }; }
       }));
-      return json({ version: 4, q, report });
+      return json({ version: 5, q, report });
     }
-    for (const [name, fn] of ENGINES) {
-      try {
-        const r = await fn(q, page);
-        if (r.items.length) return json({ version: 4, source: name, items: r.items.slice(0, 100), errors });
-      } catch (e) { errors.push(name + ': ' + String(e.message || e)); }
+    for (const qq of variants(q)) {
+      for (const [name, fn] of ENGINES) {
+        if (name === 'Google' && errors.some(e => e.startsWith('Google: HTTP 429'))) continue;
+        try {
+          const r = await fn(qq, page);
+          if (r.items.length >= 4) return json({ version: 5, source: name, query: qq, items: r.items.slice(0, 100), errors });
+        } catch (e) { errors.push(name + ': ' + String(e.message || e)); }
+      }
     }
-    return json({ version: 4, source: '', items: [], errors });
+    return json({ version: 5, source: '', items: [], errors });
   }
 };

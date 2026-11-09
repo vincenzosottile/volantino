@@ -510,12 +510,12 @@ async function autoSearch(){
   if(q.length<2){msg('searchMsg','Scrivi prima il nome del prodotto.','err');return;}
   if(!SRV){msg('searchMsg','Per cercare su Google Immagini serve attivare il server di ricerca (apri «⚙️ Ricerca Google» qui sotto). Intanto puoi usare «Apri Google Immagini», salvare la foto e caricarla dalla Galleria.','err');const d=document.querySelector('details');if(d)d.open=true;return;}
   lastQuery=q;srvPage=1;viewOff=0;allItems=[];noMore=false;
-  const seq=++searchSeq;msg('searchMsg','Cerco "'+q+'" su Google Immagini…');$('results').innerHTML='';
+  const seq=++searchSeq;msg('searchMsg','Cerco foto di "'+q+'"…');$('results').innerHTML='';
   try{const r=await fetchGoogle(q,1);if(seq!==searchSeq)return;
     allItems=r.items;
     if(!allItems.length){msg('searchMsg','Nessuna foto trovata. Prova a scrivere il nome in modo diverso.','err');return;}
     renderResults();
-    msg('searchMsg','Risultati da '+(r.source||'Google')+' ('+allItems.length+'). Tocca una foto per inserirla.','');
+    msg('searchMsg','Risultati da '+(r.source||'?')+(r.query&&r.query.toLowerCase()!==q.toLowerCase()?' per «'+r.query+'»':'')+' ('+allItems.length+'). Tocca una foto per inserirla.','');
     pick(curItems[0],$('results').firstChild);
   }catch(e){if(seq!==searchSeq)return;msg('searchMsg','Il server di ricerca non risponde ('+(e.message||e)+'). Controlla l\'indirizzo in «⚙️ Ricerca Google».','err');}
 }
@@ -542,7 +542,7 @@ $('srvSave').onclick=()=>{SRV=$('srvUrl').value.trim().replace(/\/+$/,'');if(SRV
 $('copyWorker').onclick=async()=>{try{const t=await (await fetch('worker.js',{cache:'no-store'})).text();await navigator.clipboard.writeText(t);msg('srvMsg','Codice copiato! Incollalo nell\'editor di Cloudflare.','ok');}catch(e){msg('srvMsg','Copia non riuscita: apri '+location.origin+location.pathname.replace(/[^/]*$/,'')+'worker.js e copia il testo.','err');}};
 async function searchSrv(q,page){
   const r=await fetch(SRV+'/?q='+encodeURIComponent(q)+'&page='+page);if(!r.ok)throw new Error('server '+r.status);
-  const j=await r.json();return {items:(j.items||[]).map(it=>({thumb:it.thumb||it.full,full:it.full,viaSrv:true})),source:j.source||''};
+  const j=await r.json();return {items:(j.items||[]).map(it=>({thumb:it.thumb||it.full,full:it.full,viaSrv:true})),source:j.source||'',query:(j.query||'').replace(/\s*prodotto supermercato\s*$/,'')};
 }
 const inClaude=/claude\.ai|claudeusercontent|anthropic/.test(location.href)||!!(window.claude);
 if(inClaude){setTimeout(()=>msg('searchMsg','⚠️ Sei dentro Claude: qui la ricerca e la fotocamera non funzionano. Scarica il file e aprilo con Chrome.','err'),50);}
