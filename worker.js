@@ -1,4 +1,4 @@
-// Server di ricerca immagini per "Crea Volantino Offerte"  (versione 3)
+// Server di ricerca immagini per "Crea Volantino Offerte"  (versione 4)
 // Da incollare in un Cloudflare Worker (piano gratuito).
 // Uso:  /?q=prosciutto crudo            -> elenco immagini
 //       /?q=prosciutto crudo&debug=1    -> diagnosi: cosa risponde ogni motore
@@ -71,12 +71,15 @@ function parseBing(html) {
   }
   return items;
 }
-function bingSample(html) {
-  const keys = ['iusc', 'murl', 'mediaurl', 'turl', 'mimg', 'OIP.', 'captcha', 'challenge', 'consent'];
+function bingSample(html, url) {
+  const keys = ['iusc', 'murl', 'mediaurl', 'turl', 'mimg', 'OIP', 'th.bing.com', 'tse', 'data-src', 'imgpt', 'm="', 'captcha', 'challenge', 'consent', 'cookie', 'redirect', 'location'];
   const counts = {}; keys.forEach(k => counts[k] = (html.split(k).length - 1));
-  const t = (html.match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
-  const i = Math.max(html.indexOf('iusc'), html.indexOf('mediaurl'), html.indexOf('OIP.'));
-  return { titolo: t, conteggi: counts, campione: i > 0 ? html.slice(Math.max(0, i - 150), i + 350) : html.slice(0, 400) };
+  const t = (html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || '';
+  const body = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  const text = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const i = html.search(/OIP|th\.bing\.com|imgpt|mimg/);
+  return { url: url.replace(/\?.*/, ''), lunghezza: html.length, titolo: t, conteggi: counts, testo_visibile: text.slice(0, 300),
+    inizio: html.slice(0, 300), vicino_immagini: i > 0 ? html.slice(Math.max(0, i - 200), i + 300) : '' };
 }
 async function bing(q, page) {
   const first = (page - 1) * 35 + 1;
@@ -86,15 +89,16 @@ async function bing(q, page) {
     ['https://www.bing.com/images/async?q=' + encodeURIComponent(q) + '&first=' + first + '&count=35&mmasync=1', { 'User-Agent': UA_MOB }],
     ['https://www.bing.com/images/search?q=' + encodeURIComponent(q) + '&first=' + first + '&FORM=HDRSC3', { 'User-Agent': UA_MOB }]
   ];
-  let last = '', sample = null;
+  let last = '', samples = [];
   for (const [url, h] of attempts) {
     const r = await get(url, h);
-    if (r.status !== 200) { last = 'HTTP ' + r.status; continue; }
+    if (r.status !== 200) { last = 'HTTP ' + r.status; samples.push({ url: url.replace(/\?.*/, ''), status: r.status }); continue; }
     const items = parseBing(r.text);
     if (items.length) return { items: uniq(items) };
     last = 'nessun risultato leggibile (' + r.text.length + ' caratteri)';
-    if (!sample) sample = bingSample(r.text);
+    samples.push(r.text.length > 1000 ? bingSample(r.text, url) : { url: url.replace(/\?.*/, ''), lunghezza: r.text.length, inizio: r.text.slice(0, 200) });
   }
+  const sample = samples;
   const e = new Error(last); e.sample = sample; throw e;
 }
 
@@ -158,7 +162,7 @@ export default {
     if (img) return proxyImage(img);
 
     const q = (u.searchParams.get('q') || '').trim();
-    if (!q) return json({ ok: true, version: 3, info: 'Server di ricerca del volantino attivo. Usa ?q=prodotto' });
+    if (!q) return json({ ok: true, version: 4, info: 'Server di ricerca del volantino attivo. Usa ?q=prodotto' });
     const page = Math.max(1, parseInt(u.searchParams.get('page') || '1', 10) || 1);
     const debug = u.searchParams.get('debug');
 
@@ -170,14 +174,14 @@ export default {
         try { const r = await fn(q, page); report[name] = { ok: true, risultati: r.items.length, ms: Date.now() - t0, esempio: r.items[0] }; }
         catch (e) { report[name] = { ok: false, errore: String(e.message || e), ms: Date.now() - t0, dettagli: e.sample || undefined }; }
       }));
-      return json({ version: 3, q, report });
+      return json({ version: 4, q, report });
     }
     for (const [name, fn] of ENGINES) {
       try {
         const r = await fn(q, page);
-        if (r.items.length) return json({ version: 3, source: name, items: r.items.slice(0, 100), errors });
+        if (r.items.length) return json({ version: 4, source: name, items: r.items.slice(0, 100), errors });
       } catch (e) { errors.push(name + ': ' + String(e.message || e)); }
     }
-    return json({ version: 3, source: '', items: [], errors });
+    return json({ version: 4, source: '', items: [], errors });
   }
 };
