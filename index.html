@@ -40,6 +40,14 @@
   #fallback img{max-width:90vw;max-height:78vh;border-radius:6px}
   #fallback p{color:#fff;font-size:14px}
   input[type=file]{display:none}
+  #printArea{display:none}
+  @media print{
+    @page{size:A4 portrait;margin:0}
+    html,body{margin:0;padding:0;background:#fff}
+    body>*:not(#printArea){display:none!important}
+    #printArea{display:block;width:210mm;height:297mm;overflow:hidden}
+    #printArea img{width:210mm;height:297mm;object-fit:contain;display:block}
+  }
   #results{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
   #results button{aspect-ratio:1;border:2px solid var(--line);border-radius:8px;background:#fff center/contain no-repeat;cursor:pointer;padding:0}
   #results button.sel{border-color:var(--acc);box-shadow:0 0 0 2px #ffd5db}
@@ -55,6 +63,7 @@
     <div class="btns" style="justify-content:center">
       <button class="btn primary" id="dlPng">Scarica PNG</button>
       <button class="btn navy" id="dlPdf">Scarica PDF (A4)</button>
+      <button class="btn" id="printBtn">🖨️ Stampa</button>
       <button class="btn share" id="shareBtn">📤 Condividi</button>
     </div>
     <div class="msg" id="dlMsg" style="text-align:center"></div>
@@ -137,6 +146,7 @@
   </div>
 </div>
 
+<div id="printArea"><img id="printImg" alt=""></div>
 <div id="fallback"><img id="fbImg" alt="Volantino"><p>Tieni premuto sull'immagine (o tasto destro) e scegli "Salva immagine".</p><button class="btn" id="fbClose">Chiudi</button></div>
 
 <script>
@@ -544,6 +554,7 @@ $('dlPdf').onclick=()=>{
 if(navigator.canShare){$('shareBtn').style.display='inline-flex';}
 $('shareBtn').onclick=()=>{draw();cv.toBlob(async b=>{const f=new File([b],fname('png'),{type:'image/png'});
   try{if(navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'Volantino'});else msg('dlMsg','Condivisione non supportata, usa Scarica PNG.','err');}catch(e){}},'image/png');};
+$('printBtn').onclick=()=>{draw();const img=$('printImg');img.onload=()=>{setTimeout(()=>{try{window.print()}catch(e){msg('dlMsg','Stampa non disponibile qui: scarica il PDF e stampalo.','err')}},100)};img.src=cv.toDataURL('image/png');};
 /* ---------- start ---------- */
 draw();
 if(document.fonts){Promise.all(['800 40px "Barlow Condensed"','400 40px "Lilita One"','800 40px "Baloo 2"'].map(f=>document.fonts.load(f))).then(draw).catch(draw);setTimeout(draw,1500);}
