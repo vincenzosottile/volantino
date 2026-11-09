@@ -104,6 +104,9 @@
         <div class="btns"><button class="btn" id="srvSave">Salva</button><button class="btn" id="copyWorker">Copia codice del server</button></div>
         <div class="msg" id="srvMsg" style="color:var(--muted)">Senza server la ricerca usa Google Immagini (o Bing se Google non risponde) tramite un servizio pubblico gratuito, a volte lento. Con il tuo server Cloudflare usa Google ed è più affidabile.</div>
       </details>
+      <div class="btns"><button class="btn" id="diagBtn">🩺 Verifica ricerca</button></div>
+      <pre id="diagOut" style="white-space:pre-wrap;font-size:12px;background:#f4f6fa;border-radius:8px;padding:8px;display:none"></pre>
+
       <input type="file" id="camFile" accept="image/*" capture="environment">
       <input type="file" id="imgFile" accept="image/*">
       <label for="cutMode">Scontorno</label>
@@ -435,7 +438,10 @@ async function urlToImage(url){
 async function pick(item,btn){
   msg('imgMsg','Carico la foto…');
   try{let im=null;
-    if(item.viaProxy){for(const u of [item.full,item.thumb]){try{im=await proxyImage(u);if(im.width>=120)break;}catch(e){}}
+    if(item.viaProxy){
+      const bt=bigThumb(item.thumb);
+      const tries=[()=>proxyImage(item.full)];if(bt)tries.unshift(()=>directImage(bt));tries.push(()=>directImage(item.thumb),()=>proxyImage(item.thumb));
+      for(const f of tries){try{const x=await f();if(x.width>=120){im=x;break;}if(!im)im=x;}catch(e){}}
       if(!im)throw new Error('x');}
     else if(item.viaSrv){for(const u of [item.full,item.thumb]){try{im=await urlToImage(SRV+'/?img='+encodeURIComponent(u));if(im.width>=120)break;}catch(e){}}
       if(!im)throw new Error('x');}
@@ -443,29 +449,31 @@ async function pick(item,btn){
     setProduct(im);markSel(btn);}
   catch(e){msg('imgMsg','Questa foto non si può usare, scegline un\'altra.','err');}
 }
+// Servizi ponte pubblici: vengono provati TUTTI insieme, vince il primo che risponde bene
 const PROXIES=[
-  u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
-  u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
-  u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)
+  {name:'allorigins',  url:u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)},
+  {name:'allorigins-json', url:u=>'https://api.allorigins.win/get?url='+encodeURIComponent(u), json:true},
+  {name:'codetabs',    url:u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u)},
+  {name:'corsproxy',   url:u=>'https://corsproxy.io/?url='+encodeURIComponent(u)},
+  {name:'cors.lol',    url:u=>'https://api.cors.lol/?url='+encodeURIComponent(u)}
 ];
-let proxyOk=0;
-async function viaProxy(u,asText){
-  let lastErr;
-  for(let k=0;k<PROXIES.length;k++){
-    const i=(proxyOk+k)%PROXIES.length;
-    try{const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),12000);
-      const r=await fetch(PROXIES[i](u),{signal:ctl.signal});clearTimeout(t);
-      if(!r.ok)throw new Error('proxy '+r.status);
-      const out=asText?await r.text():await r.blob();
-      if(!asText&&!(out.type||'').startsWith('image/')&&out.size<2000)throw new Error('non immagine');
-      proxyOk=i;return out;}catch(e){lastErr=e;}
-  }
-  throw lastErr||new Error('proxy');
+async function fetchTimeout(url,ms){const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms);try{return await fetch(url,{signal:ctl.signal});}finally{clearTimeout(t);}}
+async function oneProxy(px,u,asText,ms){
+  const r=await fetchTimeout(px.url(u),ms);
+  if(!r.ok)throw new Error(px.name+' '+r.status);
+  if(px.json){const j=await r.json();if(!asText)throw new Error('json');const t=j.contents||'';if(t.length<500)throw new Error(px.name+' vuoto');return t;}
+  if(asText){const t=await r.text();if(t.length<500)throw new Error(px.name+' vuoto');return t;}
+  const bl=await r.blob();if(!(bl.type||'').startsWith('image/')||bl.size<1500)throw new Error(px.name+' non immagine');return bl;
+}
+async function viaProxy(u,asText,check){
+  const list=PROXIES.filter(p=>asText||!p.json);
+  return Promise.any(list.map(px=>oneProxy(px,u,asText,15000).then(v=>{if(check&&!check(v))throw new Error(px.name+' risultati vuoti');return v;})))
+    .catch(e=>{throw new Error('nessun servizio ponte ha risposto');});
 }
 function decodeEnt(s){return s.replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>');}
 async function searchBingPublic(q,page){
   const url='https://www.bing.com/images/async?q='+encodeURIComponent(q)+'&first='+((page-1)*35)+'&count=35&mmasync=1&setlang=it&cc=IT';
-  const html=decodeEnt(await viaProxy(url,true));
+  const html=decodeEnt(await viaProxy(url,true,t=>/murl/.test(t)));
   const out=[];const re=/"murl":"(.*?)".*?"turl":"(.*?)"/g;let m;
   while((m=re.exec(html))&&out.length<16)out.push({full:m[1].replace(/\\\//g,'/'),thumb:m[2].replace(/\\\//g,'/'),viaProxy:true});
   return out;
@@ -473,7 +481,7 @@ async function searchBingPublic(q,page){
 function unescJs(x){try{return JSON.parse('"'+x.replace(/"/g,'\\"')+'"')}catch(e){return x}}
 async function searchGooglePublic(q,page){
   const url='https://www.google.com/search?tbm=isch&hl=it&gl=it&safe=active&ijn='+(page-1)+'&q='+encodeURIComponent(q);
-  const html=await viaProxy(url,true);
+  const html=await viaProxy(url,true,t=>/\["https?:\/\/[^"]+",\d+,\d+\]/.test(t)&&!/unusual traffic|traffico insolito|consent\.google/i.test(t));
   const out=[],seen=new Set();const re=/\["(https?:\/\/[^"]+?)",(\d+),(\d+)\]/g;let m,last=null;
   while((m=re.exec(html))&&out.length<16){const u=unescJs(m[1]);
     if(/gstatic\.com\/images/.test(u)){last=u;continue;}
@@ -481,6 +489,8 @@ async function searchGooglePublic(q,page){
     seen.add(u);out.push({full:u,thumb:last||u,viaProxy:true});last=null;}
   return out;
 }
+function bigThumb(t){if(!/(\.mm\.bing\.net|th\.bing\.com)\/th/.test(t))return null;return t.replace(/([?&])(w|h|c|rs|qlt|pid)=[^&]*/g,'$1').replace(/&+/g,'&')+'&w=900&h=900&c=7';}
+async function directImage(u){const r=await fetchTimeout(u,12000);if(!r.ok)throw new Error(r.status);const bl=await r.blob();if(!(bl.type||'').startsWith('image/'))throw new Error('tipo');return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(bl);});}
 async function proxyImage(u){const blob=await viaProxy(u,false);return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(blob);});}
 async function autoSearch(force){
   const q=($('desc').value||'').trim();
@@ -491,9 +501,9 @@ async function autoSearch(force){
   if(!SRV){
     msg('searchMsg','Cerco su Google Immagini…');
     try{const qq=q+' prodotto supermercato';let items=[],src='Google';
-      try{items=await searchGooglePublic(qq,curPage);}catch(e){console.warn('google',e);}
-      if(seq!==searchSeq)return;
-      if(items.length<4){src='Bing (Google non ha risposto)';msg('searchMsg','Google non risponde, cerco su Bing…');items=await searchBingPublic(qq,curPage);}
+      const [g,bg]=await Promise.allSettled([searchGooglePublic(qq,curPage),searchBingPublic(qq,curPage)]);
+      if(g.status==='fulfilled')items=g.value;
+      if(items.length<4&&bg.status==='fulfilled'&&bg.value.length){items=bg.value;src='Bing (Google non ha risposto)';}
       if(seq!==searchSeq)return;
       if(items.length){
         msg('searchMsg','Risultati da '+src+'. Tocca una foto per sceglierla.','');
@@ -619,6 +629,19 @@ if(navigator.canShare){$('shareBtn').style.display='inline-flex';}
 $('shareBtn').onclick=()=>{draw();cv.toBlob(async b=>{const f=new File([b],fname('png'),{type:'image/png'});
   try{if(navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'Volantino'});else msg('dlMsg','Condivisione non supportata, usa Scarica PNG.','err');}catch(e){}},'image/png');};
 $('printBtn').onclick=()=>{draw();const img=$('printImg');img.onload=()=>{setTimeout(()=>{try{window.print()}catch(e){msg('dlMsg','Stampa non disponibile qui: scarica il PDF e stampalo.','err')}},100)};img.src=cv.toDataURL('image/png');};
+$('diagBtn').onclick=async()=>{
+  const out=$('diagOut');out.style.display='block';out.textContent='Verifica in corso (fino a 20 secondi)…\n';
+  const q='acqua naturale 2 litri';const line=t=>{out.textContent+=t+'\n'};
+  const tests=[];
+  for(const px of PROXIES){
+    tests.push((async()=>{const t0=performance.now();try{const h=decodeEnt(await oneProxy(px,'https://www.bing.com/images/async?q='+encodeURIComponent(q)+'&count=35&mmasync=1',true,15000));const n=(h.match(/murl/g)||[]).length;line((n?'✅':'⚠️')+' Bing via '+px.name+': '+n+' foto, '+Math.round(performance.now()-t0)+' ms');}catch(e){line('❌ Bing via '+px.name+': '+(e.name==='AbortError'?'tempo scaduto':e.message));}})());
+    tests.push((async()=>{const t0=performance.now();try{const h=await oneProxy(px,'https://www.google.com/search?tbm=isch&hl=it&q='+encodeURIComponent(q),true,15000);const n=(h.match(/\["https?:\/\/[^"]+",\d+,\d+\]/g)||[]).length;const blk=/unusual traffic|traffico insolito|consent\.google/i.test(h);line((n&&!blk?'✅':'⚠️')+' Google via '+px.name+': '+(blk?'bloccato da Google':n+' immagini')+', '+Math.round(performance.now()-t0)+' ms');}catch(e){line('❌ Google via '+px.name+': '+(e.name==='AbortError'?'tempo scaduto':e.message));}})());
+  }
+  tests.push((async()=>{try{await directImage('https://tse1.mm.bing.net/th?q='+encodeURIComponent(q)+'&w=300&h=300&c=7');line('✅ Immagini Bing dirette: OK');}catch(e){line('❌ Immagini Bing dirette: '+(e.message||e));}})());
+  tests.push((async()=>{try{const v=await searchOFF('acqua naturale');line('✅ Open Food Facts: '+v.length+' prodotti');}catch(e){line('❌ Open Food Facts: '+(e.message||e));}})());
+  if(SRV)tests.push((async()=>{try{const r=await searchSrv(q,1);line('✅ Server Cloudflare: '+r.items.length+' foto ('+r.source+')');}catch(e){line('❌ Server Cloudflare: '+(e.message||e));}})());
+  await Promise.allSettled(tests);line('— Fine. Mandami uno screenshot di questo riquadro.');
+};
 /* ---------- start ---------- */
 draw();
 if(document.fonts){Promise.all(['800 40px "Barlow Condensed"','400 40px "Lilita One"','800 40px "Baloo 2"'].map(f=>document.fonts.load(f))).then(draw).catch(draw);setTimeout(draw,1500);}
