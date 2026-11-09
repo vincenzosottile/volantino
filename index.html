@@ -457,7 +457,15 @@ async function autoSearch(force){
         return;}
     }catch(e){console.warn(e);msg('srvMsg','Server non raggiungibile ('+(e.message||e)+'): uso la ricerca base.','err');}
   }
-  const [a,b]=await Promise.allSettled([searchOFF(q,curPage),Promise.resolve([])]);
+  // prova con meno parole se non trova nulla (es. "sorsy acqua naturale 2lt" -> "sorsy acqua naturale" -> "sorsy acqua" -> "sorsy")
+  const words=q.replace(/\b\d+([.,]\d+)?\s*(lt|l|ml|cl|kg|g|gr|pz|x\d+)\b/gi,' ').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+  const tries=[q];for(let n=words.length;n>=1;n--){const t=words.slice(0,n).join(' ');if(!tries.includes(t))tries.push(t);}
+  let a={status:'fulfilled',value:[]};const b={status:'fulfilled',value:[]};
+  for(const t of tries){
+    try{const v=await searchOFF(t,curPage);a={status:'fulfilled',value:v};if(v.length){if(t!==q)msg('searchMsg','Cerco "'+t+'"…');break;}}
+    catch(e){a={status:'rejected',reason:e};}
+    if(seq!==searchSeq)return;
+  }
   if(a.status==='fulfilled')items=items.concat(a.value);
   if(b.status==='fulfilled')items=items.concat(b.value);
   if(seq!==searchSeq)return;
