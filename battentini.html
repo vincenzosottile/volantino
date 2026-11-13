@@ -164,6 +164,7 @@
         <input type="text" id="search" placeholder="🔎 Cerca prodotto…" autocomplete="off">
         <button class="btn small" id="selAll">Seleziona tutti</button>
         <button class="btn small" id="selNone">Nessuno</button>
+        <button class="btn small" id="clearAll" style="color:#b42318;border-color:#f3b8b8">🗑 Svuota archivio</button>
       </div>
       <div class="list" id="list"></div>
     </div>
@@ -273,7 +274,7 @@ function render(){
     d.querySelector('.copies').onchange=e=>{it.copie=Math.max(1,Math.min(20,parseInt(e.target.value)||1));saveArch();updSum();};
     d.querySelector('[data-a=e]').onclick=()=>editItem(it.id);
     d.querySelector('[data-a=d]').onclick=()=>{const c={...it,id:uid(),nome:it.nome};items.splice(items.indexOf(it)+1,0,c);saveArch();render();editItem(c.id);};
-    d.querySelector('[data-a=x]').onclick=()=>askDelete(it,d);
+    d.querySelector('[data-a=x]').onclick=()=>{items=items.filter(x=>x!==it);if(editId===it.id)resetForm();saveArch();render();};
     list.appendChild(d);
   });
   $('cnt').textContent='('+items.length+')';
@@ -462,6 +463,13 @@ $('impXls').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)retur
   fr.readAsArrayBuffer(f);};
 ['impPrice','impSkipSosp'].forEach(id=>$(id).addEventListener('change',()=>{if(impData)showImport();}));
 
+$('clearAll').onclick=()=>{
+  const b=$('clearAll');
+  if(b.dataset.armed){clearTimeout(+b.dataset.armed);delete b.dataset.armed;items=[];resetForm();saveArch();render();b.textContent='🗑 Svuota archivio';msg('impMsg','Archivio svuotato.','ok');return;}
+  if(!items.length)return;
+  b.textContent='⚠️ Tocca di nuovo per cancellare '+items.length+' prodotti';
+  b.dataset.armed=setTimeout(()=>{delete b.dataset.armed;b.textContent='🗑 Svuota archivio';},4000);
+};
 /* ---------- avvio ---------- */
 loadArch();render();resetForm();
 if(document.fonts)document.fonts.ready.then(()=>{preview1();});
