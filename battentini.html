@@ -116,11 +116,6 @@
     </div>
 
     <div class="panel">
-      <h3>👁 Anteprima cartellino</h3>
-      <div id="single" style="overflow:hidden"></div>
-    </div>
-
-    <div class="panel">
       <h3>💾 Copia di sicurezza</h3>
       <div class="msg" style="margin-top:0">L'archivio resta salvato in questo browser. Esportalo ogni tanto per non perderlo o per usarlo su un altro dispositivo.</div>
       <div class="btns">
@@ -267,8 +262,7 @@ function updSum(){const n=toPrint().length;const f=Math.ceil(n/4);$('sum').textC
 /* ---------- form ---------- */
 let editId=null;
 function formData(){return{tipo:$('f_tipo').value,nome:$('f_nome').value.trim().toUpperCase(),prezzo:fmtPrice($('f_prezzo').value),unita:$('f_unita').value,prov:$('f_prov').value.trim().toUpperCase(),cat:$('f_cat').value,cal:$('f_cal').value.trim().toUpperCase()};}
-function preview1(){const s=$('single');s.innerHTML='<div style="transform-origin:top left">'+tagHTML(formData())+'</div>';
-  const inner=s.firstChild;const tag=inner.firstChild;fitTags(s);const sc=Math.min(1,s.clientWidth/tag.getBoundingClientRect().width);inner.style.transform='scale('+sc+')';s.style.height=(tag.getBoundingClientRect().height)+'px';}
+function preview1(){}
 function resetForm(){editId=null;$('f_nome').value='';$('f_prezzo').value='';$('f_cal').value='';$('formTitle').textContent='➕ Nuovo prodotto';$('saveBtn').textContent='💾 Salva nell\'archivio';$('cancelBtn').style.display='none';preview1();}
 function editItem(id){const it=items.find(x=>x.id===id);if(!it)return;editId=id;
   $('f_tipo').value=it.tipo;$('f_nome').value=it.nome;$('f_prezzo').value=it.prezzo;$('f_unita').value=it.unita;$('f_prov').value=it.prov;$('f_cat').value=it.cat;$('f_cal').value=it.cal;
