@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Battentini Ortofrutta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{color-scheme:light;--navy:#0d2a5a;--ink:#1d2433;--muted:#667085;--line:#e3e7ee;--bg:#f4f6fa;--acc:#c8102e;--ok:#067647}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--navy);color:#fff;padding:14px 18px;font-weight:700;font-size:17px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  header span{font-weight:400;opacity:.75;font-size:13px}
+  header a{color:#fff;opacity:.8;font-size:13px;margin-left:auto}
+  .wrap{max-width:1150px;margin:0 auto;padding:14px;display:grid;grid-template-columns:380px 1fr;gap:16px}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr;padding:10px}}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .panel h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--navy);display:flex;align-items:center;gap:8px}
+  label{display:block;font-size:12.5px;font-weight:600;margin:10px 0 4px;color:#344054}
+  input[type=text],input[type=number],select{width:100%;padding:9px 10px;border:1px solid #cfd6e1;border-radius:7px;font:inherit;font-size:15px;background:#fff;color:#1d2433!important;-webkit-text-fill-color:#1d2433}
+  input::placeholder{color:#98a2b3;-webkit-text-fill-color:#98a2b3}
+  .row{display:flex;gap:10px}.row>*{flex:1;min-width:0}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 14px;border-radius:8px;border:1px solid #cfd6e1;background:#fff;font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;text-decoration:none;white-space:nowrap}
+  .btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+  .btn.navy{background:var(--navy);border-color:var(--navy);color:#fff}
+  .btn.small{padding:6px 9px;font-size:13px}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .msg{font-size:13px;margin-top:8px;min-height:18px;color:var(--muted)}
+  .msg.ok{color:var(--ok)}.msg.err{color:#b42318}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+  .toolbar input{flex:1;min-width:160px}
+  .list{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto}
+  .item{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff}
+  .item.sel{border-color:#f0b4bf;background:#fff7f8}
+  .item input[type=checkbox]{width:20px;height:20px}
+  .item .name{font-weight:700;font-size:15px;line-height:1.2}
+  .item .det{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:5px;margin-right:4px;vertical-align:1px}
+  .badge.off{background:#111;color:#fff}.badge.fv{background:#e7f5e9;color:#1e6b2d}
+  .item .act{display:flex;gap:4px;align-items:center}
+  .copies{width:52px!important;padding:5px 6px!important;font-size:14px!important;text-align:center}
+  .empty{color:var(--muted);font-size:14px;padding:18px;text-align:center}
+  .summary{font-size:14px;font-weight:600;margin:6px 0}
+  input[type=file]{display:none}
+
+  /* ---------- cartellino ---------- */
+  .tag{width:140mm;height:95mm;border:0.7mm solid #000;display:grid;grid-template-columns:71% 29%;grid-template-rows:16mm 24.5mm 24.5mm 1fr;
+       font-family:Carlito,Calibri,'Segoe UI',Arial,sans-serif;font-weight:700;color:#000;background:#fff;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .tag .hd{grid-column:1/3;display:flex;align-items:center;justify-content:center;border-bottom:0.6mm solid #000;font-size:9.5mm;letter-spacing:.2mm;white-space:nowrap;overflow:hidden;padding:0 2mm}
+  .tag.offerta .hd{background:#000;color:#fff;font-size:11.5mm}
+  .tag .nm{grid-column:1;grid-row:2/4;display:flex;align-items:center;justify-content:center;text-align:center;border-right:0.6mm solid #000;border-bottom:0.6mm solid #000;padding:1.5mm 2.5mm;line-height:1.05;overflow:hidden;word-break:normal;overflow-wrap:anywhere}
+  .tag .nm span{display:block}
+  .tag .cell{grid-column:2;border-bottom:0.6mm solid #000;padding:1.2mm 1.6mm;overflow:hidden;display:flex;flex-direction:column}
+  .tag .cell.last{border-bottom:0}
+  .tag .lab{font-size:2.9mm;letter-spacing:.1mm}
+  .tag .val{font-size:5.2mm;line-height:1.05;margin-top:.8mm;overflow-wrap:anywhere}
+  .tag .c1{grid-row:2}.tag .c2{grid-row:3}.tag .c3{grid-row:4}
+  .tag .pr{grid-column:1;grid-row:4;border-right:0.6mm solid #000;display:flex;align-items:center;padding:0 2mm;white-space:nowrap;overflow:hidden}
+  .tag .pr .eur{font-size:13mm;margin-right:1.5mm}
+  .tag .pr .num{font-size:22mm;line-height:1}
+  .tag .pr .un{font-size:6mm;margin-left:2mm;align-self:flex-end;margin-bottom:5mm}
+  .tag.blank .nm,.tag.blank .pr{color:transparent}
+
+  /* ---------- pagine ---------- */
+  .page{width:297mm;height:210mm;background:#fff;display:grid;grid-template-columns:140mm 140mm;grid-template-rows:95mm 95mm;column-gap:7mm;row-gap:6mm;
+        padding:7mm 5mm;justify-content:center;align-content:center;page-break-after:always;break-after:page;overflow:hidden}
+  .page:last-child{page-break-after:auto;break-after:auto}
+  .slot{width:140mm;height:95mm}
+  #previewWrap{overflow:auto;background:#d9dee7;border-radius:10px;padding:12px}
+  #preview{transform-origin:top left}
+  #preview .page{margin:0 auto 12px;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+  #printArea{display:none}
+  @media print{
+    @page{size:A4 landscape;margin:0}
+    html,body{margin:0!important;padding:0!important;background:#fff!important}
+    body>*:not(#printArea){display:none!important}
+    #printArea{display:block!important}
+    #printArea .page{margin:0;box-shadow:none}
+  }
+</style>
+</head>
+<body>
+<header>🏷️ Battentini Ortofrutta <span>archivio prodotti · 4 cartellini per foglio A4</span><a href="./">← Volantino offerte</a></header>
+
+<div class="wrap">
+  <div>
+    <div class="panel" id="formPanel">
+      <h3 id="formTitle">➕ Nuovo prodotto</h3>
+      <label for="f_tipo">Intestazione</label>
+      <select id="f_tipo">
+        <option value="fv">FRUTTA E VERDURA</option>
+        <option value="offerta">OFFERTA (barra nera)</option>
+      </select>
+      <label for="f_nome">Prodotto</label>
+      <input type="text" id="f_nome" placeholder="es. MELANZANE VIOLA" autocomplete="off">
+      <div class="row">
+        <div><label for="f_prezzo">Prezzo €</label><input type="text" id="f_prezzo" inputmode="decimal" placeholder="1,99"></div>
+        <div><label for="f_unita">Unità</label>
+          <select id="f_unita"><option>AL KG</option><option>AL PZ</option><option>AL MAZZO</option><option>LA CONF.</option><option>CAD.</option><option>L'ETTO</option></select></div>
+      </div>
+      <div class="row">
+        <div><label for="f_prov">Provenienza</label><input type="text" id="f_prov" list="provList" value="ITALIA" autocomplete="off"></div>
+        <div><label for="f_cat">Categoria</label>
+          <select id="f_cat"><option>I</option><option selected>II</option><option>EXTRA</option><option value="">—</option></select></div>
+      </div>
+      <datalist id="provList"><option>ITALIA</option><option>SICILIA</option><option>SPAGNA</option><option>FRANCIA</option><option>GRECIA</option><option>OLANDA</option><option>MAROCCO</option><option>EGITTO</option><option>COSTA RICA</option><option>ECUADOR</option><option>COLOMBIA</option><option>PERÙ</option><option>CILE</option><option>SUDAFRICA</option><option>NUOVA ZELANDA</option></datalist>
+      <label for="f_cal">Calibro</label>
+      <input type="text" id="f_cal" placeholder="es. 70/80 (facoltativo)" autocomplete="off">
+      <div class="btns">
+        <button class="btn primary" id="saveBtn">💾 Salva nell'archivio</button>
+        <button class="btn" id="cancelBtn" style="display:none">Annulla modifica</button>
+      </div>
+      <div class="msg" id="formMsg"></div>
+    </div>
+
+    <div class="panel">
+      <h3>👁 Anteprima cartellino</h3>
+      <div id="single" style="overflow:hidden"></div>
+    </div>
+
+    <div class="panel">
+      <h3>💾 Copia di sicurezza</h3>
+      <div class="msg" style="margin-top:0">L'archivio resta salvato in questo browser. Esportalo ogni tanto per non perderlo o per usarlo su un altro dispositivo.</div>
+      <div class="btns">
+        <button class="btn" id="expBtn">⬇️ Esporta archivio</button>
+        <button class="btn" id="impBtn">⬆️ Importa archivio</button>
+      </div>
+      <input type="file" id="impFile" accept=".json,application/json">
+      <div class="msg" id="bkMsg"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h3>📋 Archivio prodotti <span id="cnt" style="font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0"></span></h3>
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="🔎 Cerca prodotto…" autocomplete="off">
+        <button class="btn small" id="selAll">Seleziona tutti</button>
+        <button class="btn small" id="selNone">Nessuno</button>
+      </div>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div class="panel">
+      <h3>🖨️ Stampa</h3>
+      <div class="summary" id="sum"></div>
+      <label class="msg" style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="fillBlank"> Riempi gli spazi vuoti dell'ultimo foglio con cartellini vuoti</label>
+      <div class="btns">
+        <button class="btn navy" id="prevBtn">👁 Anteprima fogli</button>
+        <button class="btn primary" id="printBtn">🖨️ Stampa tutto</button>
+      </div>
+      <div class="msg">Nella finestra di stampa scegli <b>A4 orizzontale</b>, margini <b>Nessuno</b> e scala <b>100%</b>. Per avere un PDF scegli "Salva come PDF".</div>
+      <div id="previewWrap" style="display:none;margin-top:12px"><div id="preview"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const KEY='battentini_archivio_v1';
+const HEAD={fv:'FRUTTA E VERDURA',offerta:'OFFERTA'};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+
+/* ---------- archivio ---------- */
+let items=[];
+function loadArch(){
+  try{const v=localStorage.getItem(KEY);if(v){items=JSON.parse(v);return;}}catch(e){}
+  items=[
+    {tipo:'fv',nome:'RAPE',prezzo:'1,99',unita:'AL PZ',prov:'ITALIA',cat:'II',cal:''},
+    {tipo:'fv',nome:'FINOCCHI',prezzo:'3,19',unita:'AL KG',prov:'ITALIA',cat:'II',cal:''},
+    {tipo:'fv',nome:'MELANZANE VIOLA',prezzo:'1,89',unita:'AL KG',prov:'ITALIA',cat:'I',cal:''},
+    {tipo:'fv',nome:'CAVOLO CAPPUCCIO BIANCO',prezzo:'2,59',unita:'AL KG',prov:'ITALIA',cat:'II',cal:''},
+    {tipo:'offerta',nome:'UVA BIANCA',prezzo:'1,99',unita:'AL KG',prov:'ITALIA',cat:'II',cal:''},
+    {tipo:'offerta',nome:'UVA NERA',prezzo:'1,99',unita:'AL KG',prov:'ITALIA',cat:'II',cal:''},
+    {tipo:'offerta',nome:'PESCHE POLPA GIALLA',prezzo:'1,79',unita:'AL KG',prov:'ITALIA',cat:'II',cal:''}
+  ].map(x=>({...x,id:uid(),sel:true,copie:1}));
+  saveArch();
+}
+function saveArch(){try{localStorage.setItem(KEY,JSON.stringify(items));}catch(e){msg('formMsg','Attenzione: questo browser non riesce a salvare l\'archivio.','err');}}
+function msg(id,t,cls){const m=$(id);m.textContent=t;m.className='msg '+(cls||'');}
+
+/* ---------- prezzo ---------- */
+function fmtPrice(p){
+  let s=String(p||'').trim().replace(/€/g,'').replace(/\s/g,'').replace('.',',');
+  if(!s)return '';
+  if(/^\d+$/.test(s))s+=',00';
+  else if(/^\d+,\d$/.test(s))s+='0';
+  return s;
+}
+
+/* ---------- cartellino ---------- */
+function tagHTML(it){
+  if(!it)return '<div class="tag blank fv"><div class="hd">'+HEAD.fv+'</div><div class="nm"></div><div class="cell c1"><div class="lab">PROVENIENZA:</div></div><div class="cell c2"><div class="lab">CATEGORIA:</div></div><div class="cell c3 last"><div class="lab">CALIBRO:</div></div><div class="pr"></div></div>';
+  const tipo=it.tipo==='offerta'?'offerta':'fv';
+  const p=fmtPrice(it.prezzo);
+  return '<div class="tag '+tipo+'">'+
+    '<div class="hd">'+HEAD[tipo]+'</div>'+
+    '<div class="nm"><span class="fit">'+esc((it.nome||'').toUpperCase())+'</span></div>'+
+    '<div class="cell c1"><div class="lab">PROVENIENZA:</div><div class="val fitv">'+esc((it.prov||'').toUpperCase())+'</div></div>'+
+    '<div class="cell c2"><div class="lab">CATEGORIA:</div><div class="val fitv">'+esc((it.cat||'').toUpperCase())+'</div></div>'+
+    '<div class="cell c3 last"><div class="lab">CALIBRO:</div><div class="val fitv">'+esc((it.cal||'').toUpperCase())+'</div></div>'+
+    '<div class="pr fitp">'+(p?'<span class="eur">€</span><span class="num">'+esc(p)+'</span><span class="un">'+esc((it.unita||'').toUpperCase())+'</span>':'')+'</div>'+
+  '</div>';
+}
+// adatta le scritte allo spazio (in mm, così vale uguale a schermo e in stampa)
+function mmPx(){const d=document.createElement('div');d.style.width='100mm';d.style.position='absolute';d.style.visibility='hidden';document.body.appendChild(d);const v=d.getBoundingClientRect().width/100;d.remove();return v||3.78;}
+function fitTags(root){
+  const mm=mmPx();
+  root.querySelectorAll('.tag').forEach(tag=>{
+    const nm=tag.querySelector('.nm'),sp=tag.querySelector('.fit');
+    if(sp){
+      const box=nm.getBoundingClientRect();const maxW=box.width-5*mm,maxH=box.height-3*mm;
+      const words=sp.textContent.trim().split(/\s+/).length;
+      let fs=words===1?15:13.5;
+      for(;fs>4;fs-=0.25){sp.style.fontSize=fs+'mm';const r=sp.getBoundingClientRect();if(r.width<=maxW+0.5&&r.height<=maxH+0.5&&sp.scrollWidth<=maxW+1)break;}
+    }
+    const pr=tag.querySelector('.fitp');
+    if(pr&&pr.firstChild){
+      const num=pr.querySelector('.num'),eur=pr.querySelector('.eur'),un=pr.querySelector('.un');
+      const maxW=pr.getBoundingClientRect().width-4*mm;
+      let f=22;
+      for(;f>8;f-=0.5){num.style.fontSize=f+'mm';eur.style.fontSize=(f*0.6)+'mm';un.style.fontSize=Math.max(4,Math.min(6.5,f*0.3))+'mm';un.style.marginBottom=(f*0.2)+'mm';
+        const w=eur.getBoundingClientRect().width+num.getBoundingClientRect().width+un.getBoundingClientRect().width+3.5*mm;if(w<=maxW)break;}
+    }
+    tag.querySelectorAll('.fitv').forEach(v=>{let f=5.2;v.style.fontSize=f+'mm';const cell=v.parentElement;
+      while(f>2.6&&(v.scrollWidth>cell.clientWidth-2||cell.scrollHeight>cell.clientHeight+1)){f-=0.2;v.style.fontSize=f+'mm';}});
+  });
+}
+
+/* ---------- elenco ---------- */
+function render(){
+  const q=$('search').value.trim().toLowerCase();
+  const list=$('list');list.innerHTML='';
+  const shown=items.filter(it=>!q||(it.nome||'').toLowerCase().includes(q));
+  if(!items.length)list.innerHTML='<div class="empty">Archivio vuoto: aggiungi il primo prodotto a sinistra.</div>';
+  else if(!shown.length)list.innerHTML='<div class="empty">Nessun prodotto trovato.</div>';
+  shown.forEach(it=>{
+    const d=document.createElement('div');d.className='item'+(it.sel?' sel':'');
+    d.innerHTML='<input type="checkbox" '+(it.sel?'checked':'')+' title="Da stampare">'+
+      '<div><div class="name">'+esc(it.nome)+'</div><div class="det"><span class="badge '+(it.tipo==='offerta'?'off':'fv')+'">'+(it.tipo==='offerta'?'OFFERTA':'F&amp;V')+'</span>€ '+esc(fmtPrice(it.prezzo))+' '+esc(it.unita)+' · '+esc(it.prov||'—')+(it.cat?' · cat. '+esc(it.cat):'')+(it.cal?' · cal. '+esc(it.cal):'')+'</div></div>'+
+      '<div class="act"><input type="number" class="copies" min="1" max="20" value="'+(it.copie||1)+'" title="Copie"><button class="btn small" data-a="e" title="Modifica">✏️</button><button class="btn small" data-a="d" title="Duplica">⧉</button><button class="btn small" data-a="x" title="Elimina">🗑</button></div>';
+    d.querySelector('input[type=checkbox]').onchange=e=>{it.sel=e.target.checked;saveArch();render();};
+    d.querySelector('.copies').onchange=e=>{it.copie=Math.max(1,Math.min(20,parseInt(e.target.value)||1));saveArch();updSum();};
+    d.querySelector('[data-a=e]').onclick=()=>editItem(it.id);
+    d.querySelector('[data-a=d]').onclick=()=>{const c={...it,id:uid(),nome:it.nome};items.splice(items.indexOf(it)+1,0,c);saveArch();render();editItem(c.id);};
+    d.querySelector('[data-a=x]').onclick=()=>askDelete(it,d);
+    list.appendChild(d);
+  });
+  $('cnt').textContent='('+items.length+')';
+  updSum();
+}
+function askDelete(it,row){
+  const act=row.querySelector('.act');const old=act.innerHTML;
+  act.innerHTML='<span style="font-size:12.5px;font-weight:600">Eliminare?</span><button class="btn small primary">Sì</button><button class="btn small">No</button>';
+  const [yes,no]=act.querySelectorAll('button');
+  yes.onclick=()=>{items=items.filter(x=>x!==it);if(editId===it.id)resetForm();saveArch();render();};
+  no.onclick=()=>render();
+}
+function toPrint(){const out=[];items.filter(i=>i.sel).forEach(i=>{for(let k=0;k<(i.copie||1);k++)out.push(i)});return out;}
+function updSum(){const n=toPrint().length;const f=Math.ceil(n/4);$('sum').textContent=n?n+' cartellini da stampare · '+f+(f===1?' foglio A4':' fogli A4'):'Seleziona i prodotti da stampare nell\'archivio.';$('printBtn').disabled=!n;$('prevBtn').disabled=!n;}
+
+/* ---------- form ---------- */
+let editId=null;
+function formData(){return{tipo:$('f_tipo').value,nome:$('f_nome').value.trim().toUpperCase(),prezzo:fmtPrice($('f_prezzo').value),unita:$('f_unita').value,prov:$('f_prov').value.trim().toUpperCase(),cat:$('f_cat').value,cal:$('f_cal').value.trim().toUpperCase()};}
+function preview1(){const s=$('single');s.innerHTML='<div style="transform-origin:top left">'+tagHTML(formData())+'</div>';
+  const inner=s.firstChild;const tag=inner.firstChild;fitTags(s);const sc=Math.min(1,s.clientWidth/tag.getBoundingClientRect().width);inner.style.transform='scale('+sc+')';s.style.height=(tag.getBoundingClientRect().height)+'px';}
+function resetForm(){editId=null;$('f_nome').value='';$('f_prezzo').value='';$('f_cal').value='';$('formTitle').textContent='➕ Nuovo prodotto';$('saveBtn').textContent='💾 Salva nell\'archivio';$('cancelBtn').style.display='none';preview1();}
+function editItem(id){const it=items.find(x=>x.id===id);if(!it)return;editId=id;
+  $('f_tipo').value=it.tipo;$('f_nome').value=it.nome;$('f_prezzo').value=it.prezzo;$('f_unita').value=it.unita;$('f_prov').value=it.prov;$('f_cat').value=it.cat;$('f_cal').value=it.cal;
+  $('formTitle').textContent='✏️ Modifica prodotto';$('saveBtn').textContent='💾 Salva modifiche';$('cancelBtn').style.display='inline-flex';preview1();
+  $('formPanel').scrollIntoView({behavior:'smooth',block:'start'});$('f_prezzo').focus();}
+$('saveBtn').onclick=()=>{
+  const d=formData();
+  if(!d.nome){msg('formMsg','Scrivi il nome del prodotto.','err');$('f_nome').focus();return;}
+  if(!d.prezzo){msg('formMsg','Scrivi il prezzo.','err');$('f_prezzo').focus();return;}
+  if(editId){const it=items.find(x=>x.id===editId);Object.assign(it,d);msg('formMsg','Modifiche salvate: '+d.nome,'ok');}
+  else{items.unshift({...d,id:uid(),sel:true,copie:1});msg('formMsg','Aggiunto: '+d.nome,'ok');}
+  saveArch();render();resetForm();$('f_nome').focus();
+};
+$('cancelBtn').onclick=()=>{resetForm();msg('formMsg','');};
+['f_tipo','f_nome','f_prezzo','f_unita','f_prov','f_cat','f_cal'].forEach(id=>$(id).addEventListener('input',preview1));
+$('f_nome').addEventListener('keydown',e=>{if(e.key==='Enter')$('f_prezzo').focus();});
+$('f_prezzo').addEventListener('keydown',e=>{if(e.key==='Enter')$('saveBtn').click();});
+$('search').addEventListener('input',render);
+$('selAll').onclick=()=>{const q=$('search').value.trim().toLowerCase();items.forEach(i=>{if(!q||i.nome.toLowerCase().includes(q))i.sel=true});saveArch();render();};
+$('selNone').onclick=()=>{items.forEach(i=>i.sel=false);saveArch();render();};
+
+/* ---------- impaginazione ---------- */
+function pagesHTML(){
+  const list=toPrint();const fill=$('fillBlank').checked;let h='';
+  for(let i=0;i<list.length;i+=4){
+    h+='<div class="page">';
+    for(let k=0;k<4;k++){const it=list[i+k];h+='<div class="slot">'+(it?tagHTML(it):(fill?tagHTML(null):''))+'</div>';}
+    h+='</div>';
+  }
+  return h;
+}
+function showPreview(){
+  const w=$('previewWrap'),p=$('preview');w.style.display='block';p.innerHTML=pagesHTML();fitTags(p);
+  const pg=p.querySelector('.page');if(!pg)return;
+  const sc=Math.min(1,(w.clientWidth-24)/pg.getBoundingClientRect().width);
+  p.style.transform='scale('+sc+')';p.style.height=(p.scrollHeight*sc)+'px';p.style.width=(pg.getBoundingClientRect().width)+'px';
+  w.style.height='auto';
+}
+$('prevBtn').onclick=()=>{showPreview();$('previewWrap').scrollIntoView({behavior:'smooth',block:'start'});};
+$('fillBlank').onchange=()=>{if($('previewWrap').style.display!=='none')showPreview();};
+$('printBtn').onclick=async()=>{
+  try{await document.fonts.ready;}catch(e){}
+  const pa=$('printArea');pa.innerHTML=pagesHTML();pa.style.display='block';pa.style.position='absolute';pa.style.left='-10000px';pa.style.top='0';
+  fitTags(pa);pa.style.position='';pa.style.left='';pa.style.display='';
+  setTimeout(()=>{try{window.print();}catch(e){msg('bkMsg','Stampa non disponibile in questo browser.','err');}},150);
+};
+
+/* ---------- backup ---------- */
+$('expBtn').onclick=()=>{
+  const blob=new Blob([JSON.stringify({app:'battentini',versione:1,data:new Date().toISOString(),prodotti:items},null,1)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='archivio-battentini-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
+  msg('bkMsg','Archivio esportato ('+items.length+' prodotti).','ok');
+};
+$('impBtn').onclick=()=>$('impFile').click();
+$('impFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{
+  try{const j=JSON.parse(fr.result);const arr=Array.isArray(j)?j:j.prodotti;if(!Array.isArray(arr))throw 0;
+    const known=new Set(items.map(i=>(i.nome+'|'+i.tipo)));let n=0;
+    arr.forEach(x=>{if(!x||!x.nome)return;const k=x.nome+'|'+(x.tipo||'fv');const ex=items.find(i=>(i.nome+'|'+i.tipo)===k);
+      const it={tipo:x.tipo==='offerta'?'offerta':'fv',nome:String(x.nome).toUpperCase(),prezzo:fmtPrice(x.prezzo),unita:x.unita||'AL KG',prov:x.prov||'',cat:x.cat||'',cal:x.cal||'',sel:!!x.sel,copie:x.copie||1};
+      if(ex)Object.assign(ex,it);else{items.push({...it,id:uid()});n++;}});
+    saveArch();render();msg('bkMsg','Importati '+n+' prodotti nuovi, aggiornati gli altri.','ok');
+  }catch(err){msg('bkMsg','File non valido.','err');}
+};fr.readAsText(f);e.target.value='';};
+
+/* ---------- avvio ---------- */
+loadArch();render();resetForm();
+if(document.fonts)document.fonts.ready.then(()=>{preview1();});
+window.addEventListener('resize',()=>{preview1();if($('previewWrap').style.display!=='none')showPreview();});
+</script>
+</body>
+</html>
