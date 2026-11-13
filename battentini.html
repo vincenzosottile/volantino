@@ -44,6 +44,18 @@
   .empty{color:var(--muted);font-size:14px;padding:18px;text-align:center}
   .summary{font-size:14px;font-weight:600;margin:6px 0}
   input[type=file]{display:none}
+  .badge.up{background:#fde8e8;color:#b42318}.badge.down{background:#e3f6ea;color:#067647}.badge.new{background:#e8efff;color:#1d4ed8}
+  .imp-sec{margin-top:12px}
+  .imp-sec h4{margin:0 0 6px;font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .imp-list{max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:9px}
+  .imp-row{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line);font-size:13.5px}
+  .imp-row:last-child{border-bottom:0}
+  .imp-row input{width:18px;height:18px}
+  .imp-row .p{white-space:nowrap;font-weight:700}
+  .imp-row .old{color:var(--muted);text-decoration:line-through;font-weight:400;margin-right:4px}
+  .imp-row small{color:var(--muted)}
+  .opts{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;margin-top:8px}
+  .opts label{display:flex;gap:6px;align-items:center;margin:0;font-weight:500}
 
   /* ---------- cartellino ---------- */
   .tag{width:140mm;height:95mm;border:0.7mm solid #000;display:grid;grid-template-columns:71% 29%;grid-template-rows:16mm 24.5mm 24.5mm 1fr;
@@ -80,9 +92,10 @@
     #printArea .page{margin:0;box-shadow:none}
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-<header>🏷️ Battentini Ortofrutta <span>archivio prodotti · 4 cartellini per foglio A4</span><a href="./">← Volantino offerte</a></header>
+<header>🏷️ Battentini Ortofrutta <span>v3 · archivio prodotti · 4 cartellini per foglio A4</span><a href="./">← Volantino offerte</a></header>
 
 <div class="wrap">
   <div>
@@ -128,6 +141,23 @@
   </div>
 
   <div>
+    <div class="panel" id="impPanel">
+      <h3>📥 Aggiorna da listino Excel</h3>
+      <div class="msg" style="margin-top:0">Carica il listino (es. LISTINO_FRUTTA.xlsx): l'app lo confronta con l'archivio e prepara i battentini <b>solo per i prodotti con il prezzo cambiato</b>.</div>
+      <div class="row" style="margin-top:6px">
+        <div><label for="impPrice">Prezzo da usare</label>
+          <select id="impPrice"><option value="max">Listino massimo</option><option value="min">Listino minimo</option></select></div>
+      </div>
+      <div class="opts">
+        <label><input type="checkbox" id="impSkipSosp" checked> Ignora articoli SOSPESO</label>
+        <label><input type="checkbox" id="impOnlyChanged" checked> Stampa solo i prodotti cambiati</label>
+      </div>
+      <div class="btns"><button class="btn navy" id="impXlsBtn">📂 Scegli il file Excel</button></div>
+      <input type="file" id="impXls" accept=".xlsx,.xls,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+      <div class="msg" id="impMsg"></div>
+      <div id="impRes"></div>
+    </div>
+
     <div class="panel">
       <h3>📋 Archivio prodotti <span id="cnt" style="font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0"></span></h3>
       <div class="toolbar">
@@ -237,7 +267,7 @@ function render(){
   shown.forEach(it=>{
     const d=document.createElement('div');d.className='item'+(it.sel?' sel':'');
     d.innerHTML='<input type="checkbox" '+(it.sel?'checked':'')+' title="Da stampare">'+
-      '<div><div class="name">'+esc(it.nome)+'</div><div class="det"><span class="badge '+(it.tipo==='offerta'?'off':'fv')+'">'+(it.tipo==='offerta'?'OFFERTA':'F&amp;V')+'</span>€ '+esc(fmtPrice(it.prezzo))+' '+esc(it.unita)+' · '+esc(it.prov||'—')+(it.cat?' · cat. '+esc(it.cat):'')+(it.cal?' · cal. '+esc(it.cal):'')+'</div></div>'+
+      '<div><div class="name">'+esc(it.nome)+varBadge(it)+'</div><div class="det"><span class="badge '+(it.tipo==='offerta'?'off':'fv')+'">'+(it.tipo==='offerta'?'OFFERTA':'F&amp;V')+'</span>€ '+esc(fmtPrice(it.prezzo))+' '+esc(it.unita)+' · '+esc(it.prov||'—')+(it.cat?' · cat. '+esc(it.cat):'')+(it.cal?' · cal. '+esc(it.cal):'')+'</div></div>'+
       '<div class="act"><input type="number" class="copies" min="1" max="20" value="'+(it.copie||1)+'" title="Copie"><button class="btn small" data-a="e" title="Modifica">✏️</button><button class="btn small" data-a="d" title="Duplica">⧉</button><button class="btn small" data-a="x" title="Elimina">🗑</button></div>';
     d.querySelector('input[type=checkbox]').onchange=e=>{it.sel=e.target.checked;saveArch();render();};
     d.querySelector('.copies').onchange=e=>{it.copie=Math.max(1,Math.min(20,parseInt(e.target.value)||1));saveArch();updSum();};
@@ -326,6 +356,111 @@ $('impFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new Fi
     saveArch();render();msg('bkMsg','Importati '+n+' prodotti nuovi, aggiornati gli altri.','ok');
   }catch(err){msg('bkMsg','File non valido.','err');}
 };fr.readAsText(f);e.target.value='';};
+
+
+/* ---------- versione 3: import listino Excel ---------- */
+function varBadge(it){
+  if(it.nuovo)return ' <span class="badge new">NUOVO</span>';
+  if(!it.prezzoPrec)return '';
+  const a=num(it.prezzoPrec),b=num(it.prezzo);if(a===b)return '';
+  return b>a?' <span class="badge up">▲ era € '+esc(fmtPrice(it.prezzoPrec))+'</span>':' <span class="badge down">▼ era € '+esc(fmtPrice(it.prezzoPrec))+'</span>';
+}
+function num(p){const n=parseFloat(String(p==null?'':p).replace('€','').replace(/\s/g,'').replace(',','.'));return isNaN(n)?null:Math.round(n*100)/100;}
+function priceStr(n){return n==null?'':n.toFixed(2).replace('.',',');}
+function normName(s){return String(s||'').toUpperCase().replace(/[°º.]/g,' ').replace(/\s+/g,' ').trim();}
+function splitCat(desc){
+  let n=String(desc||'').replace(/\s+/g,' ').trim().toUpperCase(),cat='';
+  const m=n.match(/\s+(EXTRA|II|I)\s*[°º]?$/);
+  if(m){cat=m[1];n=n.slice(0,m.index).trim();}
+  return {nome:n,cat};
+}
+function guessProv(n){return /\b(IMP|EST|ESTER[EI])\b/.test(n.replace(/\./g,' '))?'':'ITALIA';}
+function unitOf(um){um=String(um||'').trim().toUpperCase();return um==='PZ'?'AL PZ':um==='MZ'?'AL MAZZO':um==='CF'||um==='CONF'?'LA CONF.':'AL KG';}
+
+function parseListino(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+  let h=-1;for(let i=0;i<Math.min(rows.length,15);i++){const r=rows[i].map(x=>String(x).toUpperCase());if(r.some(x=>x.includes('DESCRIZIONE'))&&r.some(x=>x.includes('LISTINO'))){h=i;break;}}
+  if(h<0)throw new Error('Non trovo le colonne "Descrizione Articolo" e "Listino" nel file.');
+  const H=rows[h].map(x=>String(x).toUpperCase().replace(/\s+/g,' ').trim());
+  const col=(...keys)=>H.findIndex(x=>keys.every(k=>x.includes(k)));
+  const C={cod:col('COD'),ass:col('ASSORT','PDV'),desc:col('DESCRIZIONE'),um:col('U.M'),min:col('LISTINO','MIN'),max:col('LISTINO','MAS'),vmin:col('VARIAZIONE','MIN'),vmax:col('VARIAZIONE','MAS'),pini:col('INIZIO'),pfin:col('FINE'),promo:col('PREZZO','PROMO')};
+  if(C.desc<0||(C.min<0&&C.max<0))throw new Error('Colonne del listino non riconosciute.');
+  const title=String((rows[0]||[]).join(' ')).replace(/\s+/g,' ').trim();
+  const out=[];
+  for(let i=h+1;i<rows.length;i++){
+    const r=rows[i];const desc=String(r[C.desc]||'').trim();if(!desc)continue;
+    out.push({cod:C.cod>=0?String(r[C.cod]||'').trim():'',ass:C.ass>=0?String(r[C.ass]||'').trim().toUpperCase():'',desc,um:C.um>=0?r[C.um]:'',
+      min:C.min>=0?num(r[C.min]):null,max:C.max>=0?num(r[C.max]):null,vmin:C.vmin>=0?String(r[C.vmin]).trim():'',vmax:C.vmax>=0?String(r[C.vmax]).trim():'',
+      promo:C.promo>=0?num(r[C.promo]):null,pini:C.pini>=0?r[C.pini]:'',pfin:C.pfin>=0?r[C.pfin]:''});
+  }
+  return {title,rows:out};
+}
+function excelDate(v){if(v===''||v==null)return null;if(typeof v==='number'){return new Date(Math.round((v-25569)*864e5));}
+  const m=String(v).match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);if(m){const y=+m[3]<100?2000+ +m[3]:+m[3];return new Date(y,+m[2]-1,+m[1]);}return null;}
+
+let impData=null;
+function analyze(list){
+  const useMax=$('impPrice').value==='max',skipS=$('impSkipSosp').checked;
+  const today=new Date();today.setHours(12,0,0,0);
+  const byCod=new Map(),byName=new Map();
+  items.forEach(it=>{if(it.cod)byCod.set(String(it.cod),it);byName.set(normName(it.nome+' '+(it.cat||'')),it);byName.set(normName(it.nome),it);});
+  const changed=[],nuovi=[];let same=0,skipped=0;
+  list.rows.forEach(r=>{
+    let price=useMax?(r.max!=null?r.max:r.min):(r.min!=null?r.min:r.max);
+    let promo=false;
+    if(r.promo){const a=excelDate(r.pini),b=excelDate(r.pfin);if((!a||a<=today)&&(!b||b>=today)){price=r.promo;promo=true;}}
+    if(!price||(skipS&&r.ass==='SOSPESO')){skipped++;return;}
+    const sc=splitCat(r.desc);
+    const it=(r.cod&&byCod.get(r.cod))||byName.get(normName(r.desc))||byName.get(normName(sc.nome+' '+sc.cat));
+    if(it){
+      if(num(it.prezzo)!==price||(promo&&it.tipo!=='offerta'))changed.push({it,r,price,promo,old:it.prezzo});else same++;
+    }else nuovi.push({r,price,promo,sc});
+  });
+  return {changed,nuovi,same,skipped};
+}
+function showImport(){
+  const res=analyze(impData);impData.res=res;
+  const el=$('impRes');
+  const chRows=res.changed.map((c,i)=>{const up=c.price>num(c.old);
+    return '<div class="imp-row"><input type="checkbox" data-ch="'+i+'" checked><div><b>'+esc(c.it.nome)+'</b>'+(c.promo?' <span class="badge off">OFFERTA</span>':'')+'<br><small>'+esc(c.r.desc)+' · cod. '+esc(c.r.cod||'—')+'</small></div>'+
+      '<div class="p"><span class="old">€ '+esc(fmtPrice(c.old))+'</span><span style="color:'+(up?'#b42318':'#067647')+'">'+(up?'▲':'▼')+' € '+priceStr(c.price)+'</span></div></div>';}).join('');
+  const nwRows=res.nuovi.map((n,i)=>'<div class="imp-row"><input type="checkbox" data-nw="'+i+'"><div><b>'+esc(n.sc.nome)+'</b>'+(n.sc.cat?' <small>cat. '+esc(n.sc.cat)+'</small>':'')+(n.promo?' <span class="badge off">OFFERTA</span>':'')+'<br><small>'+esc(n.r.ass||'')+' · cod. '+esc(n.r.cod||'—')+(n.r.vmax==='+'?' · listino ▲':n.r.vmax==='-'?' · listino ▼':'')+'</small></div><div class="p">€ '+priceStr(n.price)+' <small>'+esc(unitOf(n.r.um))+'</small></div></div>').join('');
+  el.innerHTML=
+    '<div class="msg ok" style="margin-top:8px">'+esc(impData.title||'Listino caricato')+'</div>'+
+    '<div class="summary">'+res.changed.length+' prezzi cambiati · '+res.nuovi.length+' prodotti non presenti in archivio · '+res.same+' invariati'+(res.skipped?' · '+res.skipped+' ignorati':'')+'</div>'+
+    '<div class="imp-sec"><h4>🔄 Prezzi cambiati ('+res.changed.length+')'+(res.changed.length?' <button class="btn small" data-all="ch">Tutti</button><button class="btn small" data-none="ch">Nessuno</button>':'')+'</h4>'+
+      (res.changed.length?'<div class="imp-list">'+chRows+'</div>':'<div class="msg">Nessun prezzo cambiato rispetto all\'archivio.</div>')+'</div>'+
+    '<div class="imp-sec"><h4>🆕 Non ancora in archivio ('+res.nuovi.length+')'+(res.nuovi.length?' <button class="btn small" data-all="nw">Tutti</button><button class="btn small" data-none="nw">Nessuno</button>':'')+'</h4>'+
+      (res.nuovi.length?'<div class="msg" style="margin-top:0">Spunta quelli che vendi per aggiungerli all\'archivio (la prima volta puoi aggiungerli tutti).</div><div class="imp-list">'+nwRows+'</div>':'<div class="msg">Tutti i prodotti del listino sono già in archivio.</div>')+'</div>'+
+    '<div class="btns"><button class="btn primary" id="impApply">✅ Applica e prepara i battentini</button><button class="btn" id="impCancel">Annulla</button></div>';
+  el.querySelectorAll('[data-all]').forEach(b=>b.onclick=()=>el.querySelectorAll('[data-'+b.dataset.all+']').forEach(c=>{if(c.type==='checkbox')c.checked=true}));
+  el.querySelectorAll('[data-none]').forEach(b=>b.onclick=()=>el.querySelectorAll('[data-'+b.dataset.none+']').forEach(c=>{if(c.type==='checkbox')c.checked=false}));
+  $('impCancel').onclick=()=>{el.innerHTML='';impData=null;msg('impMsg','');};
+  $('impApply').onclick=applyImport;
+}
+function applyImport(){
+  const res=impData.res,el=$('impRes');const onlyCh=$('impOnlyChanged').checked;
+  const chSel=[...el.querySelectorAll('[data-ch]')].filter(c=>c.checked).map(c=>res.changed[+c.dataset.ch]);
+  const nwSel=[...el.querySelectorAll('[data-nw]')].filter(c=>c.checked).map(c=>res.nuovi[+c.dataset.nw]);
+  if(onlyCh)items.forEach(i=>{i.sel=false;});
+  items.forEach(i=>{delete i.nuovo;delete i.prezzoPrec;});
+  const stamp=new Date().toISOString().slice(0,10);
+  chSel.forEach(c=>{const it=c.it;it.prezzoPrec=it.prezzo;it.prezzo=priceStr(c.price);if(c.r.cod)it.cod=c.r.cod;if(c.promo)it.tipo='offerta';else if(it.tipo==='offerta'&&c.it.promoAuto)it.tipo='fv';it.promoAuto=c.promo||undefined;it.aggiornato=stamp;it.sel=true;it.copie=it.copie||1;});
+  nwSel.forEach(n=>{items.push({id:uid(),cod:n.r.cod,tipo:n.promo?'offerta':'fv',promoAuto:n.promo||undefined,nome:n.sc.nome,cat:n.sc.cat,prezzo:priceStr(n.price),unita:unitOf(n.r.um),prov:guessProv(n.sc.nome),cal:'',sel:true,copie:1,nuovo:true,aggiornato:stamp});});
+  saveArch();render();
+  el.innerHTML='';impData=null;
+  const n=toPrint().length;
+  msg('impMsg','Fatto: '+chSel.length+' prezzi aggiornati, '+nwSel.length+' prodotti aggiunti. Pronti '+n+' battentini da stampare.','ok');
+  if($('previewWrap').style.display!=='none')showPreview();
+  document.getElementById('sum').scrollIntoView({behavior:'smooth',block:'center'});
+}
+$('impXlsBtn').onclick=()=>{if(typeof XLSX==='undefined'){msg('impMsg','La libreria per leggere Excel non si è caricata: controlla la connessione e ricarica la pagina.','err');return;}$('impXls').click();};
+$('impXls').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;msg('impMsg','Leggo '+f.name+'…');
+  const fr=new FileReader();fr.onload=()=>{try{const wb=XLSX.read(new Uint8Array(fr.result),{type:'array'});impData=parseListino(wb);msg('impMsg',f.name+': '+impData.rows.length+' articoli letti.','ok');showImport();}
+    catch(err){console.error(err);msg('impMsg','Non riesco a leggere il file: '+(err.message||err),'err');$('impRes').innerHTML='';}};
+  fr.readAsArrayBuffer(f);};
+['impPrice','impSkipSosp'].forEach(id=>$(id).addEventListener('change',()=>{if(impData)showImport();}));
 
 /* ---------- avvio ---------- */
 loadArch();render();resetForm();
