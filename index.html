@@ -120,6 +120,8 @@
       <input type="range" id="tol" min="5" max="120" value="38"></div>
       <label for="scale">Dimensione foto</label>
       <input type="range" id="scale" min="30" max="200" value="100">
+      <label for="posX">Posizione orizzontale</label>
+      <input type="range" id="posX" min="-700" max="400" value="0">
       <div class="btns"><button class="btn" id="resetPos">Rimetti al centro</button><button class="btn" id="clearImg">Togli foto</button></div>
       <div class="msg" id="imgMsg"></div>
     </div>
@@ -290,10 +292,11 @@ function drawTitle(){
     if(cur)lines.push(cur);
     if(fits&&lines.length*size*0.92<=maxH)break;
   }
-  ctx.fillStyle=NAVY;ctx.textBaseline='top';
-  lines.forEach((l,i)=>ctx.fillText(l,x,y0+i*size*0.92));
+  ctx.textBaseline='top';ctx.lineJoin='round';ctx.miterLimit=2;
+  const outline=(t,tx,ty,fs)=>{ctx.lineWidth=Math.max(6,fs*0.12);ctx.strokeStyle='#fff';ctx.strokeText(t,tx,ty);ctx.fillStyle=NAVY;ctx.fillText(t,tx,ty);};
+  lines.forEach((l,i)=>outline(l,x,y0+i*size*0.92,size));
   const sub=($('sub').value||'').trim().toUpperCase();
-  if(sub){const sy=y0+lines.length*size*0.92+12;fitFont(sub,'"Barlow Condensed"',800,58,maxW,24);ctx.fillText(sub,x+2,sy);}
+  if(sub){const sy=y0+lines.length*size*0.92+12;const sfs=fitFont(sub,'"Barlow Condensed"',800,58,maxW,24);outline(sub,x+2,sy,sfs);}
   ctx.textBaseline='alphabetic';
 }
 
@@ -413,7 +416,7 @@ function loadFile(file,cb){
   if(!file||!file.type.startsWith('image/')){msg('imgMsg','Il file non è un\'immagine.','err');return;}
   const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>cb(im,fr.result);im.onerror=()=>msg('imgMsg','Immagine non leggibile.','err');im.src=fr.result;};fr.readAsDataURL(file);
 }
-function setProduct(im){srcImg=im;prodCanvas=null;cutOn=false;updCutBtn();imgPos={dx:0,dy:0};$('scale').value=100;msg('imgMsg','Foto inserita. Premi «✂️ Scontorna» per togliere lo sfondo.','ok');processImage();}
+function setProduct(im){srcImg=im;prodCanvas=null;cutOn=false;updCutBtn();imgPos={dx:0,dy:0};$('scale').value=100;$('posX').value=0;msg('imgMsg','Foto inserita. Premi «✂️ Scontorna» per togliere lo sfondo.','ok');processImage();}
 
 /* ---------- ricerca automatica ---------- */
 let searchSeq=0,lastQuery='';
@@ -559,7 +562,8 @@ $('scale').addEventListener('input',draw);
 let tolTimer;$('tol').addEventListener('input',()=>{if(!cutOn)return;clearTimeout(tolTimer);tolTimer=setTimeout(processImage,120)});
 $('cutMode').addEventListener('change',()=>{$('tolWrap').style.display=$('cutMode').value==='fast'?'block':'none';if(cutOn)processImage();});
 $('cutBtn').onclick=()=>{if(!srcImg){msg('imgMsg','Prima inserisci una foto.','err');return;}cutOn=!cutOn;updCutBtn();if(!cutOn)prodCanvas=null;processImage();};
-$('resetPos').onclick=()=>{imgPos={dx:0,dy:0};$('scale').value=100;draw();};
+$('resetPos').onclick=()=>{imgPos={dx:0,dy:0};$('scale').value=100;$('posX').value=0;draw();};
+$('posX').addEventListener('input',()=>{imgPos.dx=+$('posX').value;draw();});
 $('clearImg').onclick=()=>{manualPhoto=false;srcImg=null;prodCanvas=null;draw();msg('imgMsg','');};
 $('galBtn').onclick=()=>$('imgFile').click();
 $('camBtn').onclick=()=>$('camFile').click();
@@ -585,7 +589,7 @@ let dragging=null;
 function toCanvas(e){const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left)*W/b.width,y:(e.clientY-b.top)*H/b.height}}
 cv.addEventListener('pointerdown',e=>{const p0=toCanvas(e);if(p0.x>585&&p0.y>100&&p0.y<252){$('datePanel').scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>{try{$('d1').showPicker()}catch(_){$('d1').focus()}},350);return;}const r=imgRect();if(!r)return;const p=toCanvas(e);
   if(p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h){dragging={p,start:{...imgPos}};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';}});
-cv.addEventListener('pointermove',e=>{if(!dragging)return;const p=toCanvas(e);imgPos.dx=dragging.start.dx+p.x-dragging.p.x;imgPos.dy=dragging.start.dy+p.y-dragging.p.y;draw();});
+cv.addEventListener('pointermove',e=>{if(!dragging)return;const p=toCanvas(e);imgPos.dx=dragging.start.dx+p.x-dragging.p.x;imgPos.dy=dragging.start.dy+p.y-dragging.p.y;$('posX').value=Math.round(imgPos.dx);draw();});
 ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{dragging=null;cv.style.cursor='grab'}));
 
 /* ---------- export ---------- */
