@@ -345,6 +345,46 @@ function drawPrice(){
 function draw(){
   ctx.clearRect(0,0,W,H);
   drawBackground();drawProduct();drawTitle();drawLogo();drawDates();drawPrice();
+  saveLastSoon();
+}
+
+/* ---------- memorizza l'ultimo volantino ---------- */
+const LAST_FIELDS=['desc','sub','price','unit','unitCustom','d1','d2','scale','posX','cutMode'];
+let restoring=false,lastTimer=null;
+function saveLastSoon(){if(restoring)return;clearTimeout(lastTimer);lastTimer=setTimeout(saveLast,400);}
+function saveLast(){
+  const st={v:1,imgPos,cutOn:typeof cutOn!=='undefined'?cutOn:false};
+  LAST_FIELDS.forEach(id=>{const el=$(id);if(el)st[id]=el.value;});
+  save('vol_last',JSON.stringify(st));
+}
+function canvasURL(c,max){if(!c)return '';const s=Math.min(1,max/Math.max(c.width,c.height));const t=document.createElement('canvas');t.width=Math.round(c.width*s);t.height=Math.round(c.height*s);t.getContext('2d').drawImage(c,0,0,t.width,t.height);
+  let u=t.toDataURL('image/webp',0.9);if(!u.startsWith('data:image/webp'))u=t.toDataURL('image/png');return u;}
+function saveLastImages(){
+  if(restoring)return;
+  try{
+    if(!srcImg){localStorage.removeItem('vol_last_src');localStorage.removeItem('vol_last_cut');return;}
+    const sc=document.createElement('canvas');sc.width=srcImg.naturalWidth||srcImg.width;sc.height=srcImg.naturalHeight||srcImg.height;sc.getContext('2d').drawImage(srcImg,0,0);
+    localStorage.setItem('vol_last_src',canvasURL(sc,1400));
+    localStorage.setItem('vol_last_cut',prodCanvas?canvasURL(prodCanvas,1400):'');
+  }catch(e){console.warn('foto non salvata',e);}
+}
+function imgFromURL(u){return new Promise((res,rej)=>{if(!u)return rej();const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=u;});}
+async function restoreLast(){
+  let st=null;try{st=JSON.parse(load('vol_last')||'null');}catch(e){}
+  if(!st)return;
+  restoring=true;
+  LAST_FIELDS.forEach(id=>{const el=$(id);if(el&&st[id]!=null)el.value=st[id];});
+  $('unitCustom').style.display=$('unit').value==='__c'?'block':'none';
+  if($('tolWrap'))$('tolWrap').style.display=$('cutMode').value==='fast'?'block':'none';
+  if(st.imgPos)imgPos={dx:+st.imgPos.dx||0,dy:+st.imgPos.dy||0};
+  try{
+    const src=await imgFromURL(load('vol_last_src'));srcImg=src;
+    const cutU=load('vol_last_cut');
+    if(cutU){const ci=await imgFromURL(cutU);const c=document.createElement('canvas');c.width=ci.width;c.height=ci.height;c.getContext('2d').drawImage(ci,0,0);prodCanvas=c;}
+    else prodCanvas=trimCanvas(scaledCanvas(src,1400));
+    cutOn=!!st.cutOn;updCutBtn();
+  }catch(e){}
+  restoring=false;draw();
 }
 
 /* ---------- background removal ---------- */
@@ -409,7 +449,7 @@ async function processImage(){
   }else if(mode==='fast'){c=fastCut(scaledCanvas(srcImg,1400));}
   else c=scaledCanvas(srcImg,1400);
   if(seq!==procSeq)return;
-  prodCanvas=trimCanvas(c);draw();
+  prodCanvas=trimCanvas(c);draw();saveLastImages();
 }
 
 function loadFile(file,cb){
@@ -564,7 +604,7 @@ $('cutMode').addEventListener('change',()=>{$('tolWrap').style.display=$('cutMod
 $('cutBtn').onclick=()=>{if(!srcImg){msg('imgMsg','Prima inserisci una foto.','err');return;}cutOn=!cutOn;updCutBtn();if(!cutOn)prodCanvas=null;processImage();};
 $('resetPos').onclick=()=>{imgPos={dx:0,dy:0};$('scale').value=100;$('posX').value=0;draw();};
 $('posX').addEventListener('input',()=>{imgPos.dx=+$('posX').value;draw();});
-$('clearImg').onclick=()=>{manualPhoto=false;srcImg=null;prodCanvas=null;draw();msg('imgMsg','');};
+$('clearImg').onclick=()=>{manualPhoto=false;srcImg=null;prodCanvas=null;draw();saveLastImages();msg('imgMsg','');};
 $('galBtn').onclick=()=>$('imgFile').click();
 $('camBtn').onclick=()=>$('camFile').click();
 ['imgFile','camFile'].forEach(id=>$(id).onchange=e=>{loadFile(e.target.files[0],im=>{manualPhoto=true;setProduct(im);markSel(null);});e.target.value='';});
@@ -631,6 +671,7 @@ $('diagBtn').onclick=async()=>{
 };
 /* ---------- start ---------- */
 draw();
+restoreLast();
 if(document.fonts){Promise.all(['800 40px "Barlow Condensed"','400 40px "Lilita One"','800 40px "Baloo 2"'].map(f=>document.fonts.load(f))).then(draw).catch(draw);setTimeout(draw,1500);}
 </script>
 </body>
