@@ -76,6 +76,7 @@
         <div><label for="d1">Dal</label><input type="date" id="d1"></div>
         <div><label for="d2">Al</label><input type="date" id="d2"></div>
       </div>
+      <label class="check"><input type="checkbox" id="showDates" checked> Mostra «Offerte valide dal… al…» sul volantino</label>
       <div class="msg" style="color:var(--muted)">Tocca i campi per cambiare inizio e fine. Puoi anche toccare il riquadro giallo delle date sull'anteprima.</div>
     </div>
 
@@ -259,6 +260,7 @@ function drawLogo(){
 }
 
 function drawDates(){
+  if(!$('showDates').checked)return;
   const x=585,y=100,w=443,h=152;
   rr(ctx,x,y,w,h,18);ctx.fillStyle='#f9d24a';ctx.fill();
   // calendar icon
@@ -350,11 +352,13 @@ function draw(){
 
 /* ---------- memorizza l'ultimo volantino ---------- */
 const LAST_FIELDS=['desc','sub','price','unit','unitCustom','d1','d2','scale','posX','cutMode'];
+const LAST_CHECKS=['showDates'];
 let restoring=false,lastTimer=null;
 function saveLastSoon(){if(restoring)return;clearTimeout(lastTimer);lastTimer=setTimeout(saveLast,400);}
 function saveLast(){
   const st={v:1,imgPos,cutOn:typeof cutOn!=='undefined'?cutOn:false};
   LAST_FIELDS.forEach(id=>{const el=$(id);if(el)st[id]=el.value;});
+  LAST_CHECKS.forEach(id=>{const el=$(id);if(el)st[id]=el.checked;});
   save('vol_last',JSON.stringify(st));
 }
 function canvasURL(c,max){if(!c)return '';const s=Math.min(1,max/Math.max(c.width,c.height));const t=document.createElement('canvas');t.width=Math.round(c.width*s);t.height=Math.round(c.height*s);t.getContext('2d').drawImage(c,0,0,t.width,t.height);
@@ -374,6 +378,8 @@ async function restoreLast(){
   if(!st)return;
   restoring=true;
   LAST_FIELDS.forEach(id=>{const el=$(id);if(el&&st[id]!=null)el.value=st[id];});
+  LAST_CHECKS.forEach(id=>{const el=$(id);if(el&&typeof st[id]==='boolean')el.checked=st[id];});
+  updDateFields();
   $('unitCustom').style.display=$('unit').value==='__c'?'block':'none';
   if($('tolWrap'))$('tolWrap').style.display=$('cutMode').value==='fast'?'block':'none';
   if(st.imgPos)imgPos={dx:+st.imgPos.dx||0,dy:+st.imgPos.dy||0};
@@ -627,7 +633,7 @@ document.addEventListener('paste',e=>{const it=[...(e.clipboardData||{}).items||
 // drag image on canvas
 let dragging=null;
 function toCanvas(e){const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left)*W/b.width,y:(e.clientY-b.top)*H/b.height}}
-cv.addEventListener('pointerdown',e=>{const p0=toCanvas(e);if(p0.x>585&&p0.y>100&&p0.y<252){$('datePanel').scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>{try{$('d1').showPicker()}catch(_){$('d1').focus()}},350);return;}const r=imgRect();if(!r)return;const p=toCanvas(e);
+cv.addEventListener('pointerdown',e=>{const p0=toCanvas(e);if($('showDates').checked&&p0.x>585&&p0.y>100&&p0.y<252){$('datePanel').scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>{try{$('d1').showPicker()}catch(_){$('d1').focus()}},350);return;}const r=imgRect();if(!r)return;const p=toCanvas(e);
   if(p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h){dragging={p,start:{...imgPos}};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';}});
 cv.addEventListener('pointermove',e=>{if(!dragging)return;const p=toCanvas(e);imgPos.dx=dragging.start.dx+p.x-dragging.p.x;imgPos.dy=dragging.start.dy+p.y-dragging.p.y;$('posX').value=Math.round(imgPos.dx);draw();});
 ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{dragging=null;cv.style.cursor='grab'}));
@@ -669,6 +675,8 @@ $('diagBtn').onclick=async()=>{
   }catch(e){line('❌ Server: '+(e.message||e));}
   line('— Fine.');
 };
+function updDateFields(){const on=$('showDates').checked;['d1','d2'].forEach(id=>{$(id).disabled=!on;$(id).style.opacity=on?1:.45;});}
+$('showDates').addEventListener('change',()=>{updDateFields();draw();});
 /* ---------- start ---------- */
 draw();
 restoreLast();
