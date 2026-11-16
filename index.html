@@ -123,6 +123,8 @@
       <input type="range" id="scale" min="30" max="200" value="100">
       <label for="posX">Posizione orizzontale</label>
       <input type="range" id="posX" min="-700" max="400" value="0">
+      <label for="posY">Posizione verticale</label>
+      <input type="range" id="posY" min="-500" max="500" value="0">
       <div class="btns"><button class="btn" id="resetPos">Rimetti al centro</button><button class="btn" id="clearImg">Togli foto</button></div>
       <div class="msg" id="imgMsg"></div>
     </div>
@@ -351,7 +353,7 @@ function draw(){
 }
 
 /* ---------- memorizza l'ultimo volantino ---------- */
-const LAST_FIELDS=['desc','sub','price','unit','unitCustom','d1','d2','scale','posX','cutMode'];
+const LAST_FIELDS=['desc','sub','price','unit','unitCustom','d1','d2','scale','posX','posY','cutMode'];
 const LAST_CHECKS=['showDates'];
 let restoring=false,lastTimer=null;
 function saveLastSoon(){if(restoring)return;clearTimeout(lastTimer);lastTimer=setTimeout(saveLast,400);}
@@ -462,7 +464,7 @@ function loadFile(file,cb){
   if(!file||!file.type.startsWith('image/')){msg('imgMsg','Il file non è un\'immagine.','err');return;}
   const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>cb(im,fr.result);im.onerror=()=>msg('imgMsg','Immagine non leggibile.','err');im.src=fr.result;};fr.readAsDataURL(file);
 }
-function setProduct(im){srcImg=im;prodCanvas=null;cutOn=false;updCutBtn();imgPos={dx:0,dy:0};$('scale').value=100;$('posX').value=0;msg('imgMsg','Foto inserita. Premi «✂️ Scontorna» per togliere lo sfondo.','ok');processImage();}
+function setProduct(im){srcImg=im;prodCanvas=null;cutOn=false;updCutBtn();imgPos={dx:0,dy:0};$('scale').value=100;$('posX').value=0;$('posY').value=0;msg('imgMsg','Foto inserita. Premi «✂️ Scontorna» per togliere lo sfondo.','ok');processImage();}
 
 /* ---------- ricerca automatica ---------- */
 let searchSeq=0,lastQuery='';
@@ -608,8 +610,9 @@ $('scale').addEventListener('input',draw);
 let tolTimer;$('tol').addEventListener('input',()=>{if(!cutOn)return;clearTimeout(tolTimer);tolTimer=setTimeout(processImage,120)});
 $('cutMode').addEventListener('change',()=>{$('tolWrap').style.display=$('cutMode').value==='fast'?'block':'none';if(cutOn)processImage();});
 $('cutBtn').onclick=()=>{if(!srcImg){msg('imgMsg','Prima inserisci una foto.','err');return;}cutOn=!cutOn;updCutBtn();if(!cutOn)prodCanvas=null;processImage();};
-$('resetPos').onclick=()=>{imgPos={dx:0,dy:0};$('scale').value=100;$('posX').value=0;draw();};
+$('resetPos').onclick=()=>{imgPos={dx:0,dy:0};$('scale').value=100;$('posX').value=0;$('posY').value=0;draw();};
 $('posX').addEventListener('input',()=>{imgPos.dx=+$('posX').value;draw();});
+$('posY').addEventListener('input',()=>{imgPos.dy=+$('posY').value;draw();});
 $('clearImg').onclick=()=>{manualPhoto=false;srcImg=null;prodCanvas=null;draw();saveLastImages();msg('imgMsg','');};
 $('galBtn').onclick=()=>$('imgFile').click();
 $('camBtn').onclick=()=>$('camFile').click();
@@ -635,7 +638,7 @@ let dragging=null;
 function toCanvas(e){const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left)*W/b.width,y:(e.clientY-b.top)*H/b.height}}
 cv.addEventListener('pointerdown',e=>{const p0=toCanvas(e);if($('showDates').checked&&p0.x>585&&p0.y>100&&p0.y<252){$('datePanel').scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>{try{$('d1').showPicker()}catch(_){$('d1').focus()}},350);return;}const r=imgRect();if(!r)return;const p=toCanvas(e);
   if(p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h){dragging={p,start:{...imgPos}};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';}});
-cv.addEventListener('pointermove',e=>{if(!dragging)return;const p=toCanvas(e);imgPos.dx=dragging.start.dx+p.x-dragging.p.x;imgPos.dy=dragging.start.dy+p.y-dragging.p.y;$('posX').value=Math.round(imgPos.dx);draw();});
+cv.addEventListener('pointermove',e=>{if(!dragging)return;const p=toCanvas(e);imgPos.dx=dragging.start.dx+p.x-dragging.p.x;imgPos.dy=dragging.start.dy+p.y-dragging.p.y;$('posX').value=Math.round(imgPos.dx);$('posY').value=Math.round(imgPos.dy);draw();});
 ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{dragging=null;cv.style.cursor='grab'}));
 
 /* ---------- export ---------- */
